@@ -1995,6 +1995,44 @@ class e107plugin
 	}
 
 	/**
+	 * @TODO @see https://github.com/e107inc/e107/issues/5295
+	 * @param $function
+	 * @param $folder
+	 * @param $tag
+	 * @return array
+	 */
+	public function XmlAdminIcons($function, $folder, $tag)
+	{
+		$this->log("Running ".__FUNCTION__);
+
+		$iconTypes = ['icon', 'iconSmall', 'icon128'];
+		$ret = [];
+
+		if($function === 'install' || $function === 'update')
+		{
+			foreach ($tag['link'] as $link)
+			{
+				$attrib = $link['@attributes'];
+
+				foreach($iconTypes as $key)
+				{
+					if(!empty($attrib[$key]) && str_ends_with($attrib[$key], '.png'))
+					{
+						$path = e_PLUGIN.$folder."/".$attrib[$key];
+						$file = basename($path);
+
+					}
+
+				}
+
+			}
+		}
+
+		return $ret;
+
+	}
+
+	/**
 	 * Returns details of a plugin from the plugin table from it's ID
 	 * @deprecated
 	 * @param int|string $id
@@ -3042,6 +3080,7 @@ class e107plugin
 		if (varset($plug_vars['adminLinks']))
 		{
 			$this->XmlAdminLinks($function, $plug_vars['adminLinks']);
+			// $this->XmlAdminIcons($function, $plug_vars['adminLinks']); // @TODO
 		}
 
 		if (!empty($plug_vars['siteLinks']))
