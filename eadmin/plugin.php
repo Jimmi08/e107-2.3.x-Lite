@@ -519,7 +519,8 @@ class plugin_ui extends e_admin_ui
 				return false;
 			}
 
-			e107::getSingleton('e107plugin')->refresh($id);
+			;
+			e107::getPlugin()->refresh($id);
 			e107::getLog()->add('PLUGMAN_04', $id);
 
 			e107::getMessage()->addSuccess("Repair Complete (".$id.")"); // Repair Complete ([x])
