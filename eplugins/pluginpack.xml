@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<e107Release>
+
+  <plugin
+    organization="Jimako-e107-plugins"
+    repo="chatbox"
+    folder="chatbox"
+    branch="main"
+    name="Chatbox Menu"
+    compatibility="2.3"
+    infourl="https://github.com/Jimako-e107-plugins/chatbox"
+  >
+    <description>A chatbox menu plugin for e107</description>
+  </plugin>
+    <plugin
+    organization="Jimako-e107-plugins"
+    repo="e107-efiction-plugin"
+    folder="efiction"
+    branch="main"
+    name="Efiction Menu"
+    compatibility="2.3"
+    infourl="https://github.com/Jimako-e107-plugins/e107-efiction-plugin"
+  >
+    <description>A chatbox menu plugin for e107</description>
+  </plugin>
+  <plugin
+    organization="Jimako-e107-plugins"
+    repo="forum"
+    folder="forum"
+    branch="main"
+    name="Forum plugin"
+    compatibility="2.3"
+    infourl="https://github.com/Jimako-e107-plugins/forum"
+  >
+    <description>Forum plugin for e107</description>
+  </plugin>
+    <plugin
+    organization="Jimako-e107-plugins"
+    repo="e107-spgallery-plugin"
+    folder="spgallery"
+    branch="main"
+    name="Simple Gallery Plugin"
+    compatibility="2.3"
+    infourl="https://github.com/Jimako-e107-plugins/e107-spgallery-plugin"
+  >
+    <description>Simple Gallery Plugin by Spinnig Plannet NZ</description>
+  </plugin>
+  <plugin
+    organization="Jimako-e107-plugins"
+    repo="pm"
+    folder="pm"
+    branch="main"
+    name="Private Messages Plugin"
+    compatibility="2.3"
+    infourl="https://github.com/Jimako-e107-plugins/pm"
+  >
+    <description>Private Messages plugin</description>
+  </plugin>
+
+</e107Release>

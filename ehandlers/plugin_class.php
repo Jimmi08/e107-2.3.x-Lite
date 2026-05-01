@@ -1695,7 +1695,7 @@ class e107plugin
 	 */
 	function update_plugins_table($mode = 'upgrade')
 	{
-		
+
 		$sql 	= e107::getDb();
 		$sql2 	= e107::getDb('sql2');
 		$tp 	= e107::getParser();
@@ -1895,6 +1895,19 @@ class e107plugin
 				//			echo "Updated: ".$plug_path."<br />";
 				}
 		}
+
+		// Cleanup plug_installed entries where folder no longer exists on disk
+
+		foreach ($p_installed as $plug_path => $version)
+		{
+			if (!is_dir(e_PLUGIN . $plug_path))
+			{
+				unset($p_installed[$plug_path]);
+				$sp = TRUE;
+				$mes->addDebug('Removed orphaned plug_installed entry: ' . $plug_path);
+			}
+		}
+
 		if ($sp/* && vartrue($p_installed)*/)
 		{
 			e107::getConfig('core')->setPref('plug_installed', $p_installed);

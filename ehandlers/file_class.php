@@ -1848,29 +1848,35 @@ class e_file
 
 
 	/**
-	 * Download and extract a zipped copy of e107
+	 * Download and extract a zipped copy of e107, a plugin, or a theme.
 	 *
-	 * @param string $url              "core" to download the e107 core from Git master or
-	 *                                 a custom download URL
-	 * @param string $destination_path The e107 root where the downloaded archive should be extracted,
-	 *                                 with a directory separator at the end
-	 * @return array|bool FALSE on failure;
-	 *                                 An array of successful and failed path extractions
+	 * @param string $url              'core'   — download e107 core from GitHub master
+	 *                                 'plugin' — download a plugin from GitHub (requires $params)
+	 *                                 'theme'  — download a theme from GitHub (requires $params)
+	 *                                 other    — treated as a full language pack URL
+	 * @param string $destination_path The e107 root path (with trailing separator). Default: e_BASE
+	 * @param array  $params           Required for 'plugin' and 'theme':
+	 *                                   'organization' — GitHub org or username
+	 *                                   'repo'         — GitHub repository name
+	 *                                   'branch'       — branch or tag name
+	 *                                   'folder'       — destination folder name inside e107_plugins/ or e107_themes/
+	 * @return array|bool FALSE on failure; array with 'success', 'error', 'skipped' keys on completion
 	 */
-	public function unzipGithubArchive($url = 'core', $destination_path = e_BASE)
+	public function unzipGithubArchive($url = 'core', $destination_path = e_BASE, $params = array())
 	{
 
 		switch($url)
 		{
 			case "core":
-				$localfile = 'e107-master.zip';
+				$localfile  = 'e107-master.zip';
 				$remotefile = 'https://codeload.github.com/e107inc/e107/zip/master';
-				$excludes = array(
+				$zipBase    = 'e107-master';
+				$excludes   = array(
 					'e107-master/.codeclimate.yml',
 					'e107-master/.editorconfig',
 					'e107-master/.gitignore',
 					'e107-master/.gitmodules',
-					'e107-master/CONTRIBUTING.md', # moved to ./.github/CONTRIBUTING.md
+					'e107-master/CONTRIBUTING.md',
 					'e107-master/LICENSE',
 					'e107-master/README.md',
 					'e107-master/composer.json',
@@ -1878,20 +1884,57 @@ class e_file
 					'e107-master/install.php',
 					'e107-master/favicon.ico',
 				);
-				$excludeMatch = array(
-					'/.github/',
-					'/e107_tests/',
+				$excludes[] = $zipBase;
+				$excludeMatch = array('/.github/', '/e107_tests/');
+				$newFolders = array(
+					$zipBase . '/e107_admin/'     => $destination_path . e107::getFolder('ADMIN'),
+					$zipBase . '/e107_core/'      => $destination_path . e107::getFolder('CORE'),
+					$zipBase . '/e107_docs/'      => $destination_path . e107::getFolder('DOCS'),
+					$zipBase . '/e107_handlers/'  => $destination_path . e107::getFolder('HANDLERS'),
+					$zipBase . '/e107_images/'    => $destination_path . e107::getFolder('IMAGES'),
+					$zipBase . '/e107_languages/' => $destination_path . e107::getFolder('LANGUAGES'),
+					$zipBase . '/e107_media/'     => $destination_path . e107::getFolder('MEDIA'),
+					$zipBase . '/e107_plugins/'   => $destination_path . e107::getFolder('PLUGINS'),
+					$zipBase . '/e107_system/'    => $destination_path . e107::getFolder('SYSTEM'),
+					$zipBase . '/e107_themes/'    => $destination_path . e107::getFolder('THEMES'),
+					$zipBase . '/e107_web/'       => $destination_path . e107::getFolder('WEB'),
+					$zipBase . '/'                => $destination_path,
 				);
-				break;
+			break;
 
-			// language.
-			// eg. https://github.com/e107translations/Spanish/archive/v2.1.5.zip
+			case 'plugin':
+			case 'theme':
+				if (empty($params['organization']) || empty($params['repo']) || empty($params['branch']) || empty($params['folder']))
+				{
+					return false;
+				}
+				$zipBase    = $params['repo'] . '-' . $params['branch'];
+				$localfile  = $params['repo'] . '.zip';
+				$remotefile = 'https://codeload.github.com/' . $params['organization'] . '/' . $params['repo'] . '/zip/' . $params['branch'];
+				$excludes   = array();
+				$excludes[] = $zipBase;
+				$excludeMatch = array();
+				$newFolders = array(
+					$zipBase . '/e107_plugins/' => e_BASE . e107::getFolder('PLUGINS'),
+					$zipBase . '/e107_themes/'  => e_BASE . e107::getFolder('THEMES'),
+					$zipBase . '/'              => e_BASE,
+				);
+			break;
+
 			default:
-				// 'e107-master.zip';
-				$localfile = str_replace(array('https://github.com/e107translations/', '/archive/v'), array('', '-'), $url); //remove dirs.
+				$localfile  = str_replace(array('https://github.com/e107translations/', '/archive/v'), array('', '-'), $url);
 				$remotefile = $url;
-				$excludes = array();
+				$zipBase    = str_replace('.zip', '', $localfile);
+				$excludes   = array();
+				$excludes[] = $zipBase;
 				$excludeMatch = array('e107_themes/', 'e107_plugins/');
+				$newFolders = array(
+					$zipBase . '/e107_languages/' => $destination_path . e107::getFolder('LANGUAGES'),
+					$zipBase . '/e107_plugins/'   => $destination_path . e107::getFolder('PLUGINS'),
+					$zipBase . '/e107_themes/'    => $destination_path . e107::getFolder('THEMES'),
+					$zipBase . '/'                => $destination_path,
+				);
+			break;
 
 		}
 
@@ -1911,25 +1954,7 @@ class e_file
 
 		chmod(e_TEMP . $localfile, 0755);
 		require_once(e_HANDLER . "pclzip.lib.php");
-
-		$zipBase = str_replace('.zip', '', $localfile); // eg. e107-master
-		$excludes[] = $zipBase;
-
-		$newFolders = array(
-			$zipBase . '/e107_admin/'     => $destination_path . e107::getFolder('ADMIN'),
-			$zipBase . '/e107_core/'      => $destination_path . e107::getFolder('CORE'),
-			$zipBase . '/e107_docs/'      => $destination_path . e107::getFolder('DOCS'),
-			$zipBase . '/e107_handlers/'  => $destination_path . e107::getFolder('HANDLERS'),
-			$zipBase . '/e107_images/'    => $destination_path . e107::getFolder('IMAGES'),
-			$zipBase . '/e107_languages/' => $destination_path . e107::getFolder('LANGUAGES'),
-			$zipBase . '/e107_media/'     => $destination_path . e107::getFolder('MEDIA'),
-			$zipBase . '/e107_plugins/'   => $destination_path . e107::getFolder('PLUGINS'),
-			$zipBase . '/e107_system/'    => $destination_path . e107::getFolder('SYSTEM'),
-			$zipBase . '/e107_themes/'    => $destination_path . e107::getFolder('THEMES'),
-			$zipBase . '/e107_web/'       => $destination_path . e107::getFolder('WEB'),
-			$zipBase . '/'                => $destination_path
-		);
-
+ 
 		$srch = array_keys($newFolders);
 		$repl = array_values($newFolders);
 
@@ -1987,7 +2012,20 @@ class e_file
 			}
 		}
 
+		// Cleanup temp zip file
+		if (file_exists(e_TEMP . $localfile))
+		{
+			unlink(e_TEMP . $localfile);
+		}
+
+		// Cleanup extracted temp folder
+		if (is_dir(e_TEMP . $zipBase))
+		{
+			$this->removeDir(e_TEMP . $zipBase);
+		}
+
 		return array('success' => $success, 'error' => $error, 'skipped' => $skipped);
+
 	}
 
 
