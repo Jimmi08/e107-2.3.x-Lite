@@ -45,20 +45,32 @@ class e_marketplace
 	 */
 	public function getRegistryList($type = 'plugin')
 	{
-		$xmlFile = e_PLUGIN . 'pluginpack.xml';
+		// separate files per type
+		$fileMap = array(
+			'plugin' => e_PLUGIN . 'pluginpack.xml',
+			'theme'  => e_THEME  . 'themepack.xml',
+		);
+
+		if (!isset($fileMap[$type]))
+		{
+			e107::getMessage()->addWarning('Unknown registry type: ' . $type);
+			return $this->emptyResult($type);
+		}
+
+		$xmlFile = $fileMap[$type];
 
 		if (!is_readable($xmlFile))
 		{
-			e107::getMessage()->addWarning('pluginpack.xml not found. Add this file to plugins folder.');
+			e107::getMessage()->addWarning($xmlFile . ' not found.');
 			return $this->emptyResult($type);
 		}
 
 		$xml  = e107::getXml();
 		$data = $xml->loadXMLfile($xmlFile, 'advanced');
- 
+
 		if (empty($data))
 		{
-			e107::getMessage()->addWarning('pluginpack.xml could not be parsed.');
+			e107::getMessage()->addWarning($xmlFile . ' could not be parsed.');
 			return $this->emptyResult($type);
 		}
 
