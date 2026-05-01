@@ -1167,78 +1167,76 @@ class plugin_online_ui extends e_admin_ui
 		// Modal Download.
 		public function downloadPage()
 		{
-			if(empty($_GET['e-token']))
+			if (empty($_GET['e-token']))
 			{
 				echo e107::getMessage()->addError("Invalid Token")->render('default', 'error');
 				return null;
 			}
 
-			$frm = e107::getForm();
+			$tp  = e107::getParser();
 			$mes = e107::getMessage();
-			$tp = e107::getParser();
 
+			$params = array(
+				'organization' => $tp->filter($_GET['organization'], 'str'),
+				'repo'         => $tp->filter($_GET['repo'],         'str'),
+				'branch'       => $tp->filter($_GET['branch'],       'str'),
+				'folder'       => $tp->filter($_GET['folder'],       'str'),
+			);
 
-			$string =  base64_decode($_GET['src']);
-			parse_str($string, $data);
+			if (empty($params['organization']) || empty($params['repo']) || empty($params['branch']) || empty($params['folder']))
+			{
+				echo $mes->addError("Missing required parameters.")->render('default', 'error');
+				return null;
+			}
 
-			if(deftrue('e_DEBUG_MARKETPLACE'))
+			if (deftrue('e_DEBUG_MARKETPLACE'))
 			{
 				echo "<b>DEBUG MODE ACTIVE (no downloading)</b><br />";
-				echo '$_GET[src]: ';
-				print_a($_GET);
-
-				echo 'base64 decoded and parsed as $data:';
-				print_a($data);
+				print_a($params);
 				return false;
 			}
 
-			$pluginFolder = !empty($data['plugin_folder']) ? $tp->filter($data['plugin_folder']) : '';
-			$pluginUrl = !empty($data['plugin_url']) ? $tp->filter($data['plugin_url']) : '';
-			$pluginID = !empty($data['plugin_id']) ? $tp->filter($data['plugin_id']) : '';
-			$pluginMode = !empty($data['plugin_mode']) ? $tp->filter($data['plugin_mode']) : '';
+			$mes->addSuccess(EPL_ADLAN_94);
 
-			if(!empty($data['plugin_price']))
+			$result = e107::getFile()->unzipGithubArchive('plugin', e_BASE, $params);
+
+			if ($result === false)
 			{
-				e107::getRedirect()->go($pluginUrl);
-				return true;
+				echo $mes->addError(EPL_ADLAN_95)->render('default', 'error');
+				return null;
 			}
 
-			$mp = $this->getMarketplace();
-		//	$mp->generateAuthKey($e107SiteUsername, $e107SiteUserpass);
-
-
-
-			// Server flush useless. It's ajax ready state 4, we can't flush (sadly) before that (at least not for all browsers)
-		    $mes->addSuccess(EPL_ADLAN_94);
-
-			if($mp->download($pluginID, $pluginMode, 'plugin'))
+			if (!empty($result['success']))
 			{
-				$this -> pluginCheck(true); // rescan the plugin directory
-				$text = e107::getPlugin()->install($pluginFolder);
+				$this->pluginCheck(true); // rescan plugin directory
 
-
-
+				$text = e107::getPlugin()->install($params['folder']);
 				$mes->addInfo($text);
 
-				$upgradable =  e107::getPlug()->getUpgradableList();
-				if(!empty($upgradable[$pluginFolder]))
+				// Show upgrade button if local version is behind plugin.xml version
+				$upgradable = e107::getPlug()->getUpgradableList();
+				if (!empty($upgradable[$params['folder']]))
 				{
-					$mes->addSuccess("<a target='_top' href='".e_ADMIN."plugin.php?mode=installed&action=upgrade&id=".$pluginFolder."&e-token=".defset('e_TOKEN')."' class='btn btn-primary'>".LAN_UPDATE."</a>");
+					$upgradeUrl = e_ADMIN . "plugin.php?mode=installed&action=upgrade&path=" . $params['folder'] . "&e-token=" . defset('e_TOKEN');
+					$mes->addSuccess("<a target='_top' href='" . $upgradeUrl . "' class='btn btn-primary'>" . LAN_UPDATE . "</a>");
 				}
 
 				echo $mes->render('default', 'success');
 			}
 			else
 			{
-				// Unable to continue
 				echo $mes->addError(EPL_ADLAN_95)->render('default', 'error');
+			}
+
+			if (!empty($result['error']))
+			{
+				echo $mes->setTitle('Ignored', E_MESSAGE_WARNING)
+						->addWarning(print_a($result['error'], true))
+						->render('default', 'warning');
 			}
 
 			echo $mes->render('default', 'debug');
 			return null;
-
-
-
 		}
 
         public function ListObserver()
@@ -1480,8 +1478,11 @@ class plugin_online_ui extends e_admin_ui
 			$price = (!empty($row['price'])) ? "<span class='label label-primary'>" . $row['price'] . " " . $row['currency'] . "</span>" : "<span class='label label-success'>" . EPL_ADLAN_93 . "</span>";
 
 			$node = array(
-				'plugin_id'          => $row['params']['id'],
-				'plugin_mode'        => $row['params']['mode'],
+				'plugin_id'           => $row['folder'],                    // folder used as unique ID
+				'plugin_mode'         => $row['params']['mode'],            // 'github'
+				'plugin_organization' => $row['params']['organization'],
+				'plugin_repo'         => $row['params']['repo'],
+				'plugin_branch'       => $row['params']['branch'],
 				'plugin_icon'        => vartrue($row['icon'], e_IMAGE."logo_template.png"),
 				'plugin_name'        => stripslashes($row['name']),
 				'plugin_description' => $this->truncateSentence(vartrue($row['description'])),
@@ -1837,20 +1838,21 @@ class plugin_form_online_ui extends e_admin_form_ui
 			return '&nbsp; <span class="label label-default">'.LAN_INSTALLED."</span>";
 			return null;
 		}
-
+ 
 
 		$id = 'plug_'.$data['params']['id'];
 		$modalCaption = (!empty($data['price'])) ? EPL_ADLAN_92." ".$data['name']." ".$data['version'] : EPL_ADLAN_230." ".$data['name']." ".$data['version'];
 
 		$srcData = array(
-			'plugin_id'     => $data['params']['id'],
-			'plugin_folder' => $data['folder'],
-			'plugin_price'  => $data['price'],
-			'plugin_mode'   =>  'addon',
-			'plugin_url'    => $data['url'],
+			'mode'         => 'online',
+			'action'       => 'download',
+			'organization' => $data['params']['organization'],
+			'repo'         => $data['params']['repo'],
+			'branch'       => $data['params']['branch'],
+			'folder'       => $data['folder'],
+			'e-token'      => defset('e_TOKEN'),
 		);
-
-		$url = $this->getController()->getMarketplace()->getDownloadModal('plugin', $data);
+		$url = e_SELF . '?' . http_build_query($srcData);
 
 		$button = ADMIN_INSTALLPLUGIN_ICON;
 		$class = 'btn btn-sm btn-default btn-secondary';
