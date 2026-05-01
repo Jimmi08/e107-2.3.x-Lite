@@ -1877,6 +1877,12 @@ class e107plugin
 			{ // In table, not on server - delete it
 				$sql->delete('plugin', "`plugin_id`={$plug_info['plugin_id']}");
 				//			echo "Deleted: ".$plug_path."<br />";
+
+				if (isset($p_installed[$plug_path]))
+				{
+					unset($p_installed[$plug_path]);
+					$sp = TRUE; // triggers pref save + rebuildUrlConfig + cache clear at line 1892
+				}
 				}
 			if ($plug_info['status'] == 'update')
 			{

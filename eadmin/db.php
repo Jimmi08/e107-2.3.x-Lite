@@ -1735,6 +1735,25 @@ class system_tools
 				</form>
 			";
 
+		$installed = e107::getPref('plug_installed', array());
+
+		foreach ($installed as $folder => $version)
+		{
+			if (!is_dir(e_PLUGIN . $folder))
+			{
+				// Remove from pref
+				unset($installed[$folder]);
+
+				// Remove from plugin table
+				e107::getDb()->delete('plugin', "plugin_path = '" . e107::getDb()->escape($folder) . "'");
+
+				e107::getMessage()->addDebug('Removed orphaned plugin record: ' . $folder);
+			}
+		}
+
+		e107::getConfig()->setPref('plug_installed', $installed)->save();
+
+
 		e107::getRender()->tablerender(DBLAN_10.SEP.DBLAN_22, $mes->render().$text);
 
 		return null; 
