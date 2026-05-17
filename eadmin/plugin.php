@@ -1838,7 +1838,19 @@ class plugin_form_online_ui extends e_admin_form_ui
 			return '&nbsp; <span class="label label-default">'.LAN_INSTALLED."</span>";
 			return null;
 		}
- 
+
+		// Registry-rules runtime gate — disable Install when remote plugin.xml is missing or invalid.
+		if(isset($data['installable']) && $data['installable'] === false)
+		{
+			$tp       = e107::getParser();
+			$errAttr  = $tp->toAttribute(isset($data['install_error']) ? $data['install_error'] : '');
+			$label    = defset('LAN_PLUGIN_INSTALL_UNAVAILABLE', 'Install');
+			$btnClass = ($action === 'grid') ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-default btn-secondary';
+			$inner    = ($action === 'grid') ? ($tp->toGlyph('fa-bolt').$label) : ADMIN_INSTALLPLUGIN_ICON;
+
+			return '<button type="button" class="'.$btnClass.'" disabled title="'.$errAttr.'">'.$inner.'</button>';
+		}
+
 
 		$id = 'plug_'.$data['params']['id'];
 		$modalCaption = (!empty($data['price'])) ? EPL_ADLAN_92." ".$data['name']." ".$data['version'] : EPL_ADLAN_230." ".$data['name']." ".$data['version'];

@@ -157,7 +157,16 @@ class e_marketplace
  
 			// Fetch remote plugin.xml — version, author, icon, category, date
 			$remote = $this->fetchRemotePluginXml($org, $repo, $branch, $folder, $type);
- 
+
+			// Registry-rules runtime gate — see REGISTRY-RULES.md
+			$installable  = $this->validateRemote($remote);
+			$installError = $installable ? '' : $this->getValidationError($remote, $folder);
+
+			if (!$installable)
+			{
+				e107::getMessage()->addDebug('pluginpack: entry "' . $folder . '" not installable — ' . $installError);
+			}
+
 			// plugin.xml wins over registry for shared fields
 			$name         = (!empty($remote['name']))          ? $remote['name']          : $registryName;
 			$desc         = (!empty($remote['description']))   ? $remote['description']   : $registryDesc;
@@ -187,6 +196,8 @@ class e_marketplace
 				'screenshots'   => '',
 				'livedemo'      => '',
 				'price'         => '',
+				'installable'   => $installable,
+				'install_error' => $installError,
 				'params'        => array(
 					'organization' => $org,
 					'repo'         => $repo,
@@ -200,8 +211,69 @@ class e_marketplace
 		}
 
 		$result['params']['count'] = $i;
- 
+
 		return $result;
+	}
+
+
+	/**
+	 * Check that a remote plugin.xml payload satisfies the runtime registry rules.
+	 * Returns false for null/empty/non-array input or when required fields are missing.
+	 *
+	 * @param  mixed $remote  Result from fetchRemotePluginXml()
+	 * @return bool
+	 */
+	private function validateRemote($remote)
+	{
+		if (empty($remote) || !is_array($remote))
+		{
+			return false;
+		}
+
+		if (empty($remote['name']) || empty($remote['version']))
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+
+	/**
+	 * Human-readable validation error for the disabled Install button tooltip.
+	 *
+	 * @param  mixed  $remote  Result from fetchRemotePluginXml()
+	 * @param  string $folder  Registry folder (used in the not-found message)
+	 * @return string          Empty string if $remote is valid
+	 */
+	private function getValidationError($remote, $folder = '{folder}')
+	{
+		if (empty($remote) || !is_array($remote))
+		{
+			$path = 'e107_plugins/' . $folder . '/plugin.xml';
+			$msg  = defset('LAN_PLUGIN_REGISTRY_XML_NOT_FOUND', 'plugin.xml not found at expected path ([x])');
+			return str_replace('[x]', $path, $msg);
+		}
+
+		$missing = array();
+
+		if (empty($remote['name']))
+		{
+			$missing[] = 'name';
+		}
+
+		if (empty($remote['version']))
+		{
+			$missing[] = 'version';
+		}
+
+		if (empty($missing))
+		{
+			return '';
+		}
+
+		$msg = defset('LAN_PLUGIN_REGISTRY_XML_MISSING_FIELDS', 'plugin.xml is missing required fields: [x]');
+		return str_replace('[x]', implode(', ', $missing), $msg);
 	}
 
 
