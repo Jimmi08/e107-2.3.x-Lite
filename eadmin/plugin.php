@@ -1844,7 +1844,7 @@ class plugin_form_online_ui extends e_admin_form_ui
 		{
 			$tp       = e107::getParser();
 			$errAttr  = $tp->toAttribute(isset($data['install_error']) ? $data['install_error'] : '');
-			$label    = defset('LAN_PLUGIN_INSTALL_UNAVAILABLE', 'Install');
+			$label    = EPL_ADLAN_0;
 			$btnClass = ($action === 'grid') ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-default btn-secondary';
 			$inner    = ($action === 'grid') ? ($tp->toGlyph('fa-bolt').$label) : ADMIN_INSTALLPLUGIN_ICON;
 
