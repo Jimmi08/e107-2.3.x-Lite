@@ -148,11 +148,6 @@ class e_marketplace
 
 			$infourl = isset($attr['infourl']) ? trim($attr['infourl']) : '';
 
-			if (empty($infourl))
-			{
-				$infourl = 'https://github.com/' . $org . '/' . $repo;
-			}
-
 			$downloadUrl = $this->buildDownloadUrl($org, $repo, $branch);
  
 			// Fetch remote plugin.xml — version, author, icon, category, date
@@ -251,8 +246,7 @@ class e_marketplace
 		if (empty($remote) || !is_array($remote))
 		{
 			$path = 'e107_plugins/' . $folder . '/plugin.xml';
-			$msg  = defset('LAN_PLUGIN_REGISTRY_XML_NOT_FOUND', 'plugin.xml not found at expected path ([x])');
-			return str_replace('[x]', $path, $msg);
+			return 'plugin.xml not found at expected path (' . $path . ')';
 		}
 
 		$missing = array();
@@ -272,8 +266,7 @@ class e_marketplace
 			return '';
 		}
 
-		$msg = defset('LAN_PLUGIN_REGISTRY_XML_MISSING_FIELDS', 'plugin.xml is missing required fields: [x]');
-		return str_replace('[x]', implode(', ', $missing), $msg);
+		return 'plugin.xml is missing required fields: ' . implode(', ', $missing);
 	}
 
 
