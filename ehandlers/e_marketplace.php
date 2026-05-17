@@ -148,11 +148,6 @@ class e_marketplace
 
 			$infourl = isset($attr['infourl']) ? trim($attr['infourl']) : '';
 
-			if (empty($infourl))
-			{
-				$infourl = 'https://github.com/' . $org . '/' . $repo;
-			}
-
 			$downloadUrl = $this->buildDownloadUrl($org, $repo, $branch);
  
 			// Fetch remote plugin.xml — version, author, icon, category, date
