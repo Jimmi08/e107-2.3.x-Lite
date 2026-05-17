@@ -1839,16 +1839,47 @@ class plugin_form_online_ui extends e_admin_form_ui
 			return null;
 		}
 
+		// Info buttons — repo source and optional info URL.
+		// Always available regardless of installable state.
+		$tp     = e107::getParser();
+		$params = isset($data['params']) ? $data['params'] : array();
+		$org    = isset($params['organization']) ? $params['organization'] : '';
+		$repo   = isset($params['repo']) ? $params['repo'] : '';
+		$branch = isset($params['branch']) ? $params['branch'] : 'main';
+
+		$infoButtons = '';
+
+		if(!empty($org) && !empty($repo))
+		{
+			$repoUrl = 'https://github.com/' . rawurlencode($org)
+				. '/' . rawurlencode($repo)
+				. '/tree/' . rawurlencode($branch);
+
+			$infoButtons .= ' <a class="btn btn-sm btn-default btn-secondary" '
+				. 'href="'.$tp->toAttribute($repoUrl).'" target="_blank" rel="noopener" '
+				. 'title="View repository on GitHub">'
+				. '<i class="fa fa-github"></i></a>';
+		}
+
+		if(!empty($data['urlView']))
+		{
+			$infoUrl = $data['urlView'];
+
+			$infoButtons .= ' <a class="btn btn-sm btn-default btn-secondary" '
+				. 'href="'.$tp->toAttribute($infoUrl).'" target="_blank" rel="noopener" '
+				. 'title="More information">'
+				. '<i class="fa fa-external-link"></i></a>';
+		}
+
 		// Registry-rules runtime gate — disable Install when remote plugin.xml is missing or invalid.
 		if(isset($data['installable']) && $data['installable'] === false)
 		{
-			$tp       = e107::getParser();
 			$errAttr  = $tp->toAttribute(isset($data['install_error']) ? $data['install_error'] : '');
 			$label    = EPL_ADLAN_0;
 			$btnClass = ($action === 'grid') ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-default btn-secondary';
 			$inner    = ($action === 'grid') ? ($tp->toGlyph('fa-bolt').$label) : ADMIN_INSTALLPLUGIN_ICON;
 
-			return '<button type="button" class="'.$btnClass.'" disabled title="'.$errAttr.'">'.$inner.'</button>';
+			return '<button type="button" class="'.$btnClass.'" disabled title="'.$errAttr.'">'.$inner.'</button>' . $infoButtons;
 		}
 
 
@@ -1896,7 +1927,7 @@ class plugin_form_online_ui extends e_admin_form_ui
 		}
 
 
-		return '<a title="'.$title.'" '.$disable.' class="e-modal '.$class.'" href="'.$url.'" rel="external" data-loading="'.e_IMAGE.'/generic/loading_32.gif"  data-cache="false" data-modal-caption="'.$modalCaption.'"  target="_blank" >'.$button.'</a>';
+		return '<a title="'.$title.'" '.$disable.' class="e-modal '.$class.'" href="'.$url.'" rel="external" data-loading="'.e_IMAGE.'/generic/loading_32.gif"  data-cache="false" data-modal-caption="'.$modalCaption.'"  target="_blank" >'.$button.'</a>' . $infoButtons;
 	//	$dicon = "<a data-toggle='modal' data-bs-toggle='modal' data-modal-caption=\"Downloading ".$data['plugin_name']." ".$data['plugin_version']."\" href='{$url}' data-cache='false' data-target='#uiModal' title='".LAN_DOWNLOAD."' ><img class='top' src='".e_IMAGE_ABS."icons/download_32.png' alt=''  /></a> ";
 
 
