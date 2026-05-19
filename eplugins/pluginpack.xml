@@ -56,5 +56,16 @@
   >
     <description>Private Messages plugin</description>
   </plugin>
+  <plugin
+    organization="e107-Kanonimpresor"
+    repo="sitedown"
+    folder="sitedown_styles"
+    branch="main"
+    name="Sitedown Styles"
+    compatibility="2.3"
+    infourl="https://github.com/e107-Kanonimpresor/sitedown"
+  >
+    <description>Professional maintenance page templates for e107 CMS — 8 Bootstrap 5 skins for different business niches, no build step.</description>
+  </plugin>
 
 </e107Release>
