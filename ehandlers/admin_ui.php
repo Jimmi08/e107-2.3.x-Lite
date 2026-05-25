@@ -82,7 +82,7 @@ class e_admin_request
 
 	/**
 	 * Current ID
-	 * @var integer
+	 * @var int
 	 */
 	protected $_id = 0;
 
@@ -390,7 +390,7 @@ class e_admin_request
 
 	/**
 	 * Get current ID
-	 * @return integer
+	 * @return int
 	 */
 	public function getId()
 	{
@@ -1202,6 +1202,7 @@ class e_admin_dispatcher
 		    return true;
 		}
 
+		// LITE MODIFICATION: OO permission API instead of legacy check_class()/getperms()
 		if(isset($this->access[$route]) && !e107::getUser()->checkClass($this->access[$route], false))
 		{
 			e107::getMessage()->addDebug('Userclass Permissions Failed: ' .$this->access[$route]);
@@ -1707,7 +1708,7 @@ class e_admin_dispatcher
 		{
 			$request = $this->getRequest();
 			$selected = $request->getMode() . '/' . $request->getAction();
-			e107::getMessage()->addDebug('No selected item found, using default: ' . $selected);
+		//	e107::getMessage()->addDebug('No selected item found, using default: ' . $selected);
 		}
 
 		// Apply permissions restrictions
@@ -3053,6 +3054,19 @@ class e_admin_controller_ui extends e_admin_controller
 	protected $filterQry;
 
 	/**
+	 * Custom sorting of the filter list.
+	 * @var array
+	 */
+	protected $filterSort = array();
+
+
+	/**
+	 * Custom sorting of the batch list.
+	 * @var array
+	 */
+	protected $batchSort = array();
+
+	/**
 	 * @var boolean
 	 */
 	protected $batchDelete = true;
@@ -3091,7 +3105,7 @@ class e_admin_controller_ui extends e_admin_controller
 
 	/**
 	 * Default (db) limit value
-	 * @var integer
+	 * @var int
 	 */
 	protected $perPage = 20;
 
@@ -3205,7 +3219,23 @@ class e_admin_controller_ui extends e_admin_controller
 		return  $this->eventName;
 	}
 
-	
+	/**
+	 * @return array
+	 */
+	public function getFilterSort()
+	{
+		return  $this->filterSort;
+	}
+
+	/**
+	 * @return array
+	 */
+	public function getBatchSort()
+	{
+		return  $this->batchSort;
+	}
+
+
 	/**
 	 * @return string
 	 */
@@ -3636,6 +3666,11 @@ class e_admin_controller_ui extends e_admin_controller
 			return (isset($this->tableJoin[$table]) ? $this->tableJoin[$table] : array());
 		}
 		return (isset($this->tableJoin[$table][$att_name]) ? $this->tableJoin[$table][$att_name] : $default_att);
+	}
+
+	public function setListOrder($order)
+	{
+		$this->listOrder = $order;
 	}
 
 	/**
@@ -4238,16 +4273,27 @@ class e_admin_controller_ui extends e_admin_controller
 
 				e107::getMessage()->addDebug('Searching for custom filter method: ' .$method. '(' .implode(', ', $args). ')');
 
-
-				if(method_exists($this, $method)) // callback handling
+				if (property_exists($this, $method)) // dynamic property handling
 				{
-					//return $this->$method($filter[1], $selected); selected?
-					// better approach - pass all values as method arguments
-					// NOTE - callbacks are allowed to return QUERY as a string, it'll be added in the WHERE clause
+					e107::getMessage()->addDebug('Accessing filter property <strong>' . get_class($this) . '::$' . $method . '</strong>');
 
-					e107::getMessage()->addDebug('Executing filter callback <strong>'.get_class($this).'::'.$method.'('.implode(', ', $args).')</strong>');
+					if (is_callable($this->$method))
+					{
+						e107::getMessage()->addDebug('Executing callable property <strong>' . get_class($this) . '::$' . $method . '(' . implode(', ', $args) . ')</strong>');
 
-					return call_user_func_array(array($this, $method), $args);
+						return call_user_func_array($this->$method, $args);
+					}
+
+					// If not callable, return the property value as is (could be a query fragment or other data)
+					e107::getMessage()->addDebug('Returning property value from <strong>' . get_class($this) . '::$' . $method . '</strong>');
+
+					return $this->$method;
+				}
+				elseif (method_exists($this, $method)) // method handling
+				{
+					e107::getMessage()->addDebug('Executing filter callback <strong>' . get_class($this) . '::' . $method . '(' . implode(', ', $args) . ')</strong>');
+
+					return call_user_func_array([$this, $method], $args);
 				}
 
 				$res = array($filter[0], $filter[1]);
@@ -4391,7 +4437,7 @@ class e_admin_controller_ui extends e_admin_controller
 	/**
 	 * Take approproate action after successfull submit
 	 *
-	 * @param integer $id optional, needed only if redirect action is 'edit'
+	 * @param int $id optional, needed only if redirect action is 'edit'
 	 * @param string $noredirect_for don't redirect if action equals to its value
 	 * @return null
 	 */
@@ -4814,6 +4860,7 @@ class e_admin_controller_ui extends e_admin_controller
 	 */
 	public function getParentChildQry($orderby=false)
 	{
+		// LITE MODIFICATION: SQL_CALC_FOUND_ROWS for pagination row count (deprecated in MySQL 8 — revisit)
 		return 'SELECT SQL_CALC_FOUND_ROWS * FROM `#' .$this->getTableName(). '` ';
 	}
 
@@ -5128,7 +5175,7 @@ class e_admin_controller_ui extends e_admin_controller
 	 * @param mixed  $handleAction  Custom action handler for the search process.
 	 * @return string|false|array
 	 */
-	public function _modifyListQrySearch($listQry, $searchTerm, $filterOptions, string $tablePath,  string $tableFrom, string $primaryName, $raw, $orderField, $qryAsc, $forceFrom, int $qryFrom, $forceTo, int $perPage, $qryField,  $isfilter, $handleAction)
+	public function _modifyListQrySearch(?string $listQry, string $searchTerm, string $filterOptions, string $tablePath,  string $tableFrom, ?string $primaryName, $raw, $orderField, $qryAsc, $forceFrom, int $qryFrom, $forceTo, int $perPage, $qryField,  $isfilter, $handleAction)
 	{
 		$tp       = e107::getParser();
 		$fields   = $this->getFields();
@@ -5160,7 +5207,16 @@ class e_admin_controller_ui extends e_admin_controller
 
 			if($filterField && $filterValue !== '' && isset($fields[$filterField]))
 			{
-				$_dataType  = $fields[$filterField]['data'];
+				if(!empty($fields[$filterField]['data']))
+				{
+					$_dataType  = $fields[$filterField]['data'];
+				}
+				else
+				{
+					$_dataType  = 'str';
+					e107::getMessage()->addInfo('Field <b>' . $filterField . '</b> has no data type. Using default <b>str</b>.');
+				}
+
 				$_fieldType = $fields[$filterField]['type'];
 
 				if($_fieldType === 'comma' || $_fieldType === 'checkboxes' || $_fieldType === 'userclasses' || ($_fieldType === 'dropdown' && !empty($fields[$filterField]['writeParms']['multiple'])))
@@ -5284,16 +5340,25 @@ class e_admin_controller_ui extends e_admin_controller
 			if($this->_isSearchField($var, $searchQuery))
 			{
 				// Search for customer filter handler.
-				$cutomerSearchMethod = 'handle' . $handleAction . eHelper::camelize($key) . 'Search';
+				$customSearchMethod = 'handle' . $handleAction . eHelper::camelize($key) . 'Search';
 				$args                = array($searchTerm);
 
-				e107::getMessage()->addDebug('Searching for custom search method: ' . $className . '::' . $cutomerSearchMethod . '(' . implode(', ', $args) . ')');
+				e107::getMessage()->addDebug('Searching for custom search method: ' . $className . '::' . $customSearchMethod . '(' . implode(', ', $args) . ')');
 
-				if(method_exists($this, $cutomerSearchMethod)) // callback handling
+				if (method_exists($this, $customSearchMethod)) // callback handling
 				{
-					e107::getMessage()->addDebug('Executing custom search callback <strong>' . $className . '::' . $cutomerSearchMethod . '(' . implode(', ', $args) . ')</strong>');
+					e107::getMessage()->addDebug('Executing custom search callback <strong>' . $className . '::' . $customSearchMethod . '(' . implode(', ', $args) . ')</strong>');
 
-					$filter[] = call_user_func_array(array($this, $cutomerSearchMethod), $args);
+					$filter[] = call_user_func_array([$this, $customSearchMethod], $args);
+					continue;
+				}
+				elseif (property_exists($this, $customSearchMethod)) // check for dynamic property
+				{
+
+					e107::getMessage()->addDebug('Using custom search property <strong>' . $className . '::$' . $customSearchMethod . '</strong>');
+
+					$filter[] = call_user_func_array($this->$customSearchMethod, $args);
+
 					continue;
 				}
 
@@ -5395,6 +5460,7 @@ class e_admin_controller_ui extends e_admin_controller
 		//file_put_contents(e_LOG.'uiAjaxResponseFields.log', print_r($this->getFields(), true)."\n\n", FILE_APPEND);
 		if($joinData)
 		{
+			// LITE MODIFICATION: SQL_CALC_FOUND_ROWS for pagination row count (deprecated in MySQL 8 — revisit)
 			$qry = 'SELECT SQL_CALC_FOUND_ROWS ' . $tableSFields;
 			foreach($joinData as $jtable => $tparams)
 			{
@@ -5453,6 +5519,7 @@ class e_admin_controller_ui extends e_admin_controller
 			}
 			else
 			{
+				// LITE MODIFICATION: SQL_CALC_FOUND_ROWS for pagination row count (deprecated in MySQL 8 — revisit)
 				$qry = 'SELECT SQL_CALC_FOUND_ROWS ' . $tableSFields . ' FROM ' . $tableFrom;
 			}
 
@@ -6487,6 +6554,16 @@ class e_admin_ui extends e_admin_controller_ui
 		$this->getTreeModel()->setMessages();
 	}
 
+	protected function handleGridSearchfieldFilter($selected)
+	{
+		return $this->handleListSearchfieldFilter($selected);
+	}
+
+	protected function handleGridDeleteBatch($selected)
+	{
+		return $this->handleListDeleteBatch($selected);
+	}
+
 
 	/**
 	 * Method to generate "Search in Field" query.
@@ -6678,12 +6755,6 @@ class e_admin_ui extends e_admin_controller_ui
 
 		$this->addTitle();
 
-	//	if($this->getQuery('filter_options'))
-		{
-		//	var_dump($this);
-			// $this->addTitle("to-do"); // display filter option when active.
-		}
-		
 	}
 
 	/**
@@ -8523,6 +8594,25 @@ class e_admin_form_ui extends e_form
 		return $text;
 	}
 
+	private function sortFieldsByPriority(array $fields, array $priorityKeys)
+	{
+	    // Separate fields into priority and non-priority arrays
+	    $priorityFields = [];
+	    $remainingFields = $fields;
+
+	    foreach ($priorityKeys as $key)
+	    {
+	        // If the key exists in the fields array, move it to the priorityFields array
+	        if (isset($fields[$key]))
+	        {
+	            $priorityFields[$key] = $fields[$key];
+	            unset($remainingFields[$key]); // Remove from remaining fields
+	        }
+	    }
+
+	    // Merge priorityFields at the top with remainingFields retaining their original order
+	    return $priorityFields + $remainingFields;
+	}
 
 	/**
 	 * Render Batch and Filter Dropdown options.
@@ -8533,16 +8623,22 @@ class e_admin_form_ui extends e_form
 	public function renderBatchFilter($type='batch', $selected = '') // Common function used for both batches and filters.
 	{
 		$optdiz = array('batch' => LAN_BATCH_LABEL_PREFIX.'&nbsp;', 'filter'=> LAN_FILTER_LABEL_PREFIX.'&nbsp;');
-		$table = $this->getController()->getTableName();
+		$obj = $this->getController();
+		$table = $obj->getTableName();
 		$text = '';
 		$textsingle = '';
-				
+
 
 		$searchFieldOpts = array();
 
-		$fieldList = $this->getController()->getFields();
+		$fieldList = $obj->getFields();
+		$fieldSort = ($type ==='batch') ? $obj->getBatchSort() : $obj->getFilterSort();
 
-
+		if(!empty($fieldSort))
+		{
+			e107::getMessage()->addDebug("Filtering by custom sort field: ".print_r($fieldSort,true));
+			$fieldList = $this->sortFieldsByPriority($fieldList, $fieldSort);
+		}
 
 		foreach($fieldList as $key=>$val)
 		{
@@ -8891,29 +8987,48 @@ class e_admin_form_ui extends e_form
 					break;
 
 					case 'method':
-						$method = $key;
-						$list = call_user_func_array(array($this, $method), array('', $type, $parms));
 
-						if(is_array($list))
+						$method = !empty($val['method']) ? $val['method'] : $key; // Use the method attribute if specified, otherwise fall back to the field key
+
+						if(strpos($method, '::') !== false)
 						{
-							//check for single option
-							if(isset($list['singleOption']))
+							list($className, $methodName) = explode('::', $method);
+							$cls = new $className();
+						}
+						else
+						{
+							$cls = $this;
+							$methodName = $method;
+						}
+
+						if(method_exists($cls, $methodName))
+						{
+							$list = call_user_func_array(array($cls, $methodName), array('', $type, $parms));
+							if(is_array($list))
 							{
-								$textsingle .= $list['singleOption'];
+								// Check for single option
+								if(isset($list['singleOption']))
+								{
+									$textsingle .= $list['singleOption'];
+									continue 2;
+								}
+								// options array
+								foreach($list as $k => $name)
+								{
+									$option[$key . '__' . $k] = $name;
+								}
+							}
+							elseif(!empty($list))
+							{
+								$text .= $list;
 								continue 2;
 							}
-							// non rendered options array
-							foreach($list as $k => $name)
-							{
-								$option[$key.'__'.$k] = $name;
-							}
 						}
-						elseif(!empty($list)) //optgroup, continue
+						else
 						{
-							$text .= $list;
-							continue 2;
+							e107::getDebug()->log('Missing Method: ' . get_class($cls) . '::' . $methodName);
 						}
-					break;
+						break;
 
 					case 'user': // TODO - User Filter
 					
@@ -8953,21 +9068,23 @@ class e_admin_form_ui extends e_form
 		}
 
 
+		$text2 = '';
+
 		if(!empty($searchFieldOpts) && $type !== 'batch')
 		{
-			$text .= "\t".$this->optgroup_open(defset('LAN_UI_FILTER_SEARCH_IN_FIELD', 'Search in Field'))."\n";
+			$text2 .= "\t".$this->optgroup_open(defset('LAN_UI_FILTER_SEARCH_IN_FIELD', 'Search in Field'))."\n";
 
 			foreach($searchFieldOpts as $key=>$val)
 			{
-				$text .= $this->option($val, $key, $selected == $key)."\n";
+				$text2 .= $this->option($val, $key, $selected == $key)."\n";
 			}
 
-			$text .= "\t".$this->optgroup_close()."\n";
+			$text2 .= "\t".$this->optgroup_close()."\n";
 		}
 
 
 
-		return $textsingle.$text;
+		return $textsingle.$text2.$text;
 
 	}
 
