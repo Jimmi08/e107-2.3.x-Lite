@@ -4817,9 +4817,45 @@ class e_admin_controller_ui extends e_admin_controller
 		return 'SELECT SQL_CALC_FOUND_ROWS * FROM `#' .$this->getTableName(). '` ';
 	}
 
-
-
-
+//LITE-SKIP admin_history not ported — upstream implementation
+//LITE-SKIP is not correct. Block kept commented for line
+//LITE-SKIP alignment with upstream and visibility.
+//LITE-SKIP 	protected function backupToHistory($table, $pid, $id, $action, $data, $posted = true)
+//LITE-SKIP 	{
+//LITE-SKIP 		if($posted)
+//LITE-SKIP 		{
+//LITE-SKIP 			foreach($data as $field=>$var)
+//LITE-SKIP 			{
+//LITE-SKIP 				if(empty($this->fields[$field]['data'])) // exclude data not in the table.
+//LITE-SKIP 				{
+//LITE-SKIP 					unset($data[$field]);
+//LITE-SKIP 				}
+//LITE-SKIP 			}
+//LITE-SKIP 		}
+//LITE-SKIP
+//LITE-SKIP 		$historyData = [
+//LITE-SKIP 			'history_table'     => $table,
+//LITE-SKIP 			'history_pid'       => $pid,
+//LITE-SKIP 			'history_record_id' => $id,
+//LITE-SKIP 			'history_action'    => $action, // 'update' or 'delete'
+//LITE-SKIP 			'history_data'      => json_encode($data, JSON_PRETTY_PRINT),
+//LITE-SKIP 			'history_user_id'   => USERID,
+//LITE-SKIP 			'history_datestamp' => time(),
+//LITE-SKIP 		];
+//LITE-SKIP
+//LITE-SKIP 		// Insert the record into the admin_history table
+//LITE-SKIP 		if (!e107::getDb()->insert('admin_history', $historyData))
+//LITE-SKIP 		{
+//LITE-SKIP 			e107::getMessage()->addError("Failed to save history for table '{$table}', record ID {$id}");
+//LITE-SKIP 			e107::getMessage()->addError(e107::getDb()->getLastErrorText());
+//LITE-SKIP 			e107::getMessage()->addError(print_a($historyData, true));
+//LITE-SKIP 			return false;
+//LITE-SKIP 		}
+//LITE-SKIP
+//LITE-SKIP 		// Optional: Add debug logs for successful history creation
+//LITE-SKIP 		e107::getMessage()->addDebug("History saved for table '{$table}', record ID {$id}");
+//LITE-SKIP 		return true;
+//LITE-SKIP 	}
 
 
 	/**
@@ -4911,6 +4947,21 @@ class e_admin_controller_ui extends e_admin_controller
 		// Scenario I - use request owned POST data - toForm already executed
 		$model->setPostedData($_posted) // insert() or update() dbInsert();
 			->save(true, $forceSave);
+
+//LITE-SKIP admin_history not ported — upstream implementation
+//LITE-SKIP is not correct. Block kept commented for line
+//LITE-SKIP alignment with upstream and visibility.
+//LITE-SKIP 	    if ($id)
+//LITE-SKIP 	    {
+//LITE-SKIP 	        $new_data = $model->getData();
+//LITE-SKIP
+//LITE-SKIP 	        if($changes = array_diff_assoc($new_data, $old_data))
+//LITE-SKIP 	        {
+//LITE-SKIP 	            $old_changed_data = array_intersect_key($old_data, $changes);
+//LITE-SKIP 				$this->backupToHistory($this->table, $this->getPrimaryName(), $id, 'update', $old_changed_data);
+//LITE-SKIP 	        }
+//LITE-SKIP
+//LITE-SKIP 	    }
 
 
 
@@ -5864,6 +5915,15 @@ class e_admin_ui extends e_admin_controller_ui
 			if($model)
 			{
 				$data = $model->getData();
+
+//LITE-SKIP admin_history not ported — upstream implementation
+//LITE-SKIP is not correct. Block kept commented for line
+//LITE-SKIP alignment with upstream and visibility.
+//LITE-SKIP 				if($this->table !== 'admin_history')
+//LITE-SKIP 				{
+//LITE-SKIP 					$this->backupToHistory($this->table, $this->pid, $id, 'delete', $data);
+//LITE-SKIP 				}
+
 				if($this->beforeDelete($data, $id))
 				{
 					$check = $this->getTreeModel()->delete($id);
@@ -6520,6 +6580,15 @@ class e_admin_ui extends e_admin_controller_ui
 		if($model)
 		{
 			$data = $model->getData();
+
+//LITE-SKIP admin_history not ported — upstream implementation
+//LITE-SKIP is not correct. Block kept commented for line
+//LITE-SKIP alignment with upstream and visibility.
+//LITE-SKIP 			if($this->table !== 'admin_history')
+//LITE-SKIP 			{
+//LITE-SKIP 				$this->backupToHistory($this->table, $this->pid, $id,'delete',$data);
+//LITE-SKIP 			}
+
 			if($this->beforeDelete($data, $id))
 			{
 
