@@ -5324,6 +5324,7 @@ class eHelper
 	 */
 	public static function removeTrackers($get = array())
 	{
+		// LITE FEATURE — do not remove gtm_debug when sync
 		$trackers = array('fbclid','utm_source','utm_medium','utm_content','utm_campaign','elan', 'msclkid', 'gclid', 'gad', 'gad_source', 'mcp_token', 'gtm_debug');
 
 		foreach($trackers as $val)
