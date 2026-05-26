@@ -1278,6 +1278,12 @@ class e_session_db implements SessionHandlerInterface
      * @param string $name
      * @return bool
      */
+    // LITE MODIFICATION: #[\ReturnTypeWillChange] on the six
+    // SessionHandlerInterface methods below. Lite targets PHP 7.4 and
+    // cannot adopt upstream's PHP 8 return types; the attribute
+    // silences the PHP 8.x notice and is inert on 7.4. Do not replace
+    // with real return types when syncing — that would break PHP 7.4.
+    #[\ReturnTypeWillChange]
     public function open($path,  $name)
     {
         return true;
@@ -1287,6 +1293,7 @@ class e_session_db implements SessionHandlerInterface
      * Close session
      * @return bool
      */
+    #[\ReturnTypeWillChange]
     public function close()
     {
         $this->gc($this->getLifetime());
@@ -1298,6 +1305,7 @@ class e_session_db implements SessionHandlerInterface
      * @param string $id
      * @return string|false
      */
+    #[\ReturnTypeWillChange]
     public function read($id)
     {
         $data = false;
@@ -1320,6 +1328,7 @@ class e_session_db implements SessionHandlerInterface
      * @param string $data
      * @return bool
      */
+    #[\ReturnTypeWillChange]
     public function write($id, $data)
     {
         $session_data = array(
@@ -1367,7 +1376,8 @@ class e_session_db implements SessionHandlerInterface
      * @param string $id
      * @return bool
      */
-    public function destroy($id) 
+    #[\ReturnTypeWillChange]
+    public function destroy($id)
     {
         $id = $this->_sanitize($id);
         $this->_db->delete($this->getTable(), "`session_id`='$id'");
@@ -1379,6 +1389,7 @@ class e_session_db implements SessionHandlerInterface
      * @param int $max_lifetime
      * @return bool
      */
+    #[\ReturnTypeWillChange]
     public function gc($maxlifetime)
     {
         return $this->_db->delete($this->getTable(), '`session_expires`<'.time());
