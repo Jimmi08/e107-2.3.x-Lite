@@ -286,9 +286,6 @@ if (isset($_POST['previous_steps']))
 $e107_paths = array();
 $e107 = e107::getInstance();
 
-$e107->site_path = (isset($tmp['paths']) && isset($tmp['paths']['hash'])) ? $tmp['paths']['hash'] : "[hash]"; // placeholder 
-$e107_paths = $e107->defaultDirs($ret);
-
 $ebase = realpath(__DIR__);
 
 if ($e107->initInstall($e107_paths, $ebase, $override) === false)
@@ -1427,41 +1424,10 @@ class e_install
 		return $ret;
 	}
 
-	/**
-	 * Resolve any remaining "[hash]" placeholders in $this->e107->e107_dirs
-	 * and strip the duplicated site_path segment from the multisite
-	 * SYSTEM_DIRECTORY and MEDIA_DIRECTORY entries.
-	 *
-	 * Normally updatePaths() (called from stage_5) has already cleared every
-	 * "[hash]" before stage_7 runs, but if stage_7() or import_configuration()
-	 * is invoked without updatePaths() running first (e.g. a custom migration
-	 * script reusing install internals), the previous implementation left a
-	 * literal "[hash]" substring in every derived directory key. See #5631.
-	 *
-	 * @return null
-	 */
-	private function resolveSitePathPlaceholders()
-	{
-		foreach($this->e107->e107_dirs as $key => $path)
-		{
-			if(is_string($path) && strpos($path, '[hash]') !== false)
-			{
-				$this->e107->e107_dirs[$key] = str_replace('[hash]', $this->e107->site_path, $path);
-			}
-		}
-
-		$this->e107->e107_dirs['SYSTEM_DIRECTORY'] = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['SYSTEM_DIRECTORY']);
-		$this->e107->e107_dirs['MEDIA_DIRECTORY']  = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['MEDIA_DIRECTORY']);
-
-		return null;
-	}
-
 	private function stage_7()
 	{
 		global $e_forms;
 		$tp = e107::getParser();
-
-		$this->resolveSitePathPlaceholders();
 
 		$this->stage = 7;
 		installLog::add('Stage 7 started');
@@ -1641,7 +1607,7 @@ return [
 	{
 		global $e_forms;
 
-		$this->resolveSitePathPlaceholders();
+
 
 		//$system_dir = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['SYSTEM_DIRECTORY']);
 		//$media_dir = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['MEDIA_DIRECTORY']);
