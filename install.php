@@ -724,9 +724,22 @@ class e_install
 			$this->previous_steps['mysql']['db']        = trim($tp->filter($_POST['db']));
 			$this->previous_steps['mysql']['createdb']  = isset($_POST['createdb']) && $_POST['createdb'] == true;
 			$this->previous_steps['mysql']['prefix']    = trim($tp->filter($_POST['prefix']));
-
-			$this->setDb();
 		}
+		else
+		{
+			// "Back" case: stage-3 fields are absent from $_POST, so reuse the
+			// values already stored (and filtered) on the earlier visit instead
+			// of overwriting them with empty strings. Empty string is only a
+			// last-resort default for a genuine first visit with no data.
+			$this->previous_steps['mysql']['server']    = $this->previous_steps['mysql']['server']   ?? '';
+			$this->previous_steps['mysql']['user']      = $this->previous_steps['mysql']['user']     ?? '';
+			$this->previous_steps['mysql']['password']  = $this->previous_steps['mysql']['password'] ?? '';
+			$this->previous_steps['mysql']['db']        = $this->previous_steps['mysql']['db']       ?? '';
+			$this->previous_steps['mysql']['createdb']  = $this->previous_steps['mysql']['createdb'] ?? false;
+			$this->previous_steps['mysql']['prefix']    = $this->previous_steps['mysql']['prefix']   ?? '';
+		}
+
+		$this->setDb();
 
 		if (!empty($_POST['overwritedb']))
 		{
@@ -2398,11 +2411,11 @@ return [
 	private function setDb()
 	{
 		$sqlInfo = array(
-			'mySQLserver'       => $this->previous_steps['mysql']['server'],
-			'mySQLuser'         => $this->previous_steps['mysql']['user'],
-			'mySQLpassword'     => $this->previous_steps['mysql']['password'],
-			'mySQLdefaultdb'    => $this->previous_steps['mysql']['db'],
-			'mySQLprefix'       => $this->previous_steps['mysql']['prefix']
+			'mySQLserver'       => $this->previous_steps['mysql']['server']   ?? '',
+			'mySQLuser'         => $this->previous_steps['mysql']['user']     ?? '',
+			'mySQLpassword'     => $this->previous_steps['mysql']['password'] ?? '',
+			'mySQLdefaultdb'    => $this->previous_steps['mysql']['db']       ?? '',
+			'mySQLprefix'       => $this->previous_steps['mysql']['prefix']   ?? ''
 		);
 
 		$this->e107->initInstallSql($sqlInfo);
