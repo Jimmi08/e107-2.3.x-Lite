@@ -1485,7 +1485,10 @@ class plugin_online_ui extends e_admin_ui
 				'plugin_repo'         => $row['params']['repo'],
 				'plugin_branch'       => $row['params']['branch'],
 				'plugin_icon'        => vartrue($row['icon'], e_IMAGE."logo_template.png"),
-				'plugin_name'        => stripslashes($row['name']),
+				// Defense-in-depth: escape untrusted remote text on output, even though
+				// e_marketplace already returns these as plain text. The generic 'text'
+				// renderer emits the value into the HTML body unescaped.
+				'plugin_name'        => htmlspecialchars(stripslashes((string) $row['name']), ENT_QUOTES, 'utf-8'),
 				'plugin_description' => $this->truncateSentence(vartrue($row['description'])),
 				'plugin_featured'    => $featured,
 				'plugin_sef'         => '',
@@ -1493,8 +1496,8 @@ class plugin_online_ui extends e_admin_ui
 				'plugin_path'        => $row['folder'],
 				'plugin_date'        => $tp->toDate(strtotime($row['date']), 'relative'),
 				'plugin_category'    => vartrue($row['category'], 'n/a'),
-				'plugin_author'      => vartrue($row['author']),
-				'plugin_version'     => $row['version'],
+				'plugin_author'      => htmlspecialchars((string) vartrue($row['author']), ENT_QUOTES, 'utf-8'),
+				'plugin_version'     => htmlspecialchars((string) $row['version'], ENT_QUOTES, 'utf-8'),
 
 				'plugin_compatible' => $row['compatibility'], // $badge,
 
@@ -1928,7 +1931,7 @@ class plugin_form_online_ui extends e_admin_form_ui
 		}
 
 
-		return '<a title="'.$title.'" '.$disable.' class="e-modal '.$class.'" href="'.$url.'" rel="external" data-loading="'.e_IMAGE.'/generic/loading_32.gif"  data-cache="false" data-modal-caption="'.$modalCaption.'"  target="_blank" >'.$button.'</a>' . $infoButtons;
+		return '<a title="'.$title.'" '.$disable.' class="e-modal '.$class.'" href="'.$url.'" rel="external" data-loading="'.e_IMAGE.'/generic/loading_32.gif"  data-cache="false" data-modal-caption="'.$tp->toAttribute($modalCaption).'"  target="_blank" >'.$button.'</a>' . $infoButtons;
 	//	$dicon = "<a data-toggle='modal' data-bs-toggle='modal' data-modal-caption=\"Downloading ".$data['plugin_name']." ".$data['plugin_version']."\" href='{$url}' data-cache='false' data-target='#uiModal' title='".LAN_DOWNLOAD."' ><img class='top' src='".e_IMAGE_ABS."icons/download_32.png' alt=''  /></a> ";
 
 

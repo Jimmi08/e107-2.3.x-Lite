@@ -134,6 +134,15 @@ class e_marketplace
 				continue;
 			}
 
+			// Reject poisoned path segments before they can be interpolated into any
+			// remote URL (prevents redirecting fetches off raw.githubusercontent.com).
+			if (!$this->isValidSegment($folder) || !$this->isValidSegment($org)
+				|| !$this->isValidSegment($repo) || !$this->isValidSegment($branch))
+			{
+				e107::getMessage()->addDebug('pluginpack.xml: entry "' . $folder . '" has an invalid path segment, skipped.');
+				continue;
+			}
+
 			// Compatibility gate
 			$compat = isset($attr['compatibility']) ? trim($attr['compatibility']) : '';
 
@@ -287,6 +296,12 @@ class e_marketplace
 	{
 		$url = $this->buildRawUrl($org, $repo, $branch, $folder, $type);
 
+		if ($url === '')
+		{
+			e107::getMessage()->addDebug('pluginpack: invalid path segment — plugin.xml not fetched.');
+			return null;
+		}
+
 		$xml  = e107::getXml();
 		$data = $xml->getRemoteFile($url);
  
@@ -330,23 +345,27 @@ class e_marketplace
 		// // Icon from <adminLinks><link icon="" iconSmall="" primary="true">
 	$base = $this->buildRawBase($org, $repo, $branch, $folder, $type);
 
-	// Screenshots
+	// Screenshots / icon — build candidate URL then validate (http/https only).
+	// The filename segment is attacker-controlled (remote <screenshots><image>);
+	// validation drops anything that could break out of the <img src='...'> attribute.
 	$screenshot = '';
-	if (isset($parsed['screenshots']['image'][0]))
+	if ($base !== '' && isset($parsed['screenshots']['image'][0]) && is_string($parsed['screenshots']['image'][0]))
 	{
-		$screenshot = rtrim($base, '/') . '/' . ltrim($parsed['screenshots']['image'][0], '/');
+		$candidate  = rtrim($base, '/') . '/' . ltrim(trim($parsed['screenshots']['image'][0]), '/');
+		$screenshot = $this->sanitizeRemoteUrl($candidate);
 	}
- 
- 
+
+		// Sanitise at the trust boundary — every remote field leaves this handler clean.
+		$tp = e107::getParser();
 
 		return array(
-			'name'          => isset($rootAttr['name'])          ? trim($rootAttr['name'])          : '',
-			'version'       => isset($rootAttr['version'])       ? trim($rootAttr['version'])       : '',
-			'date'          => isset($rootAttr['date'])          ? trim($rootAttr['date'])           : '',
-			'compatibility' => isset($rootAttr['compatibility']) ? trim($rootAttr['compatibility'])  : '',
-			'author'        => isset($authorAttr['name'])        ? trim($authorAttr['name'])         : '',
-			'authorURL'     => isset($authorAttr['url'])         ? trim($authorAttr['url'])          : '',
-			'description'   => $desc,
+			'name'          => isset($rootAttr['name'])          ? $tp->toText(trim($rootAttr['name']))          : '',
+			'version'       => isset($rootAttr['version'])       ? $tp->toText(trim($rootAttr['version']))       : '',
+			'date'          => isset($rootAttr['date'])          ? $tp->toText(trim($rootAttr['date']))          : '',
+			'compatibility' => isset($rootAttr['compatibility']) ? $tp->toText(trim($rootAttr['compatibility'])) : '',
+			'author'        => isset($authorAttr['name'])        ? $tp->toText(trim($authorAttr['name']))        : '',
+			'authorURL'     => isset($authorAttr['url'])         ? $this->sanitizeRemoteUrl($authorAttr['url'])  : '',
+			'description'   => $tp->toText($desc),
 			'category'      => $category,
 			'icon'          => $screenshot,
 		);
@@ -536,16 +555,66 @@ class e_marketplace
 
 
 	/**
+	 * Validate a GitHub path segment (organization / repo / branch / folder)
+	 * before interpolating it into a remote URL. Anything outside the allowed
+	 * character set is rejected so a poisoned pluginpack.xml cannot redirect
+	 * fetches off raw.githubusercontent.com or inject path traversal.
+	 *
+	 * @param  string $segment
+	 * @return bool
+	 */
+	private function isValidSegment($segment)
+	{
+		return is_string($segment) && $segment !== '' && (bool) preg_match('/^[A-Za-z0-9._-]+$/', $segment);
+	}
+
+
+	/**
+	 * Validate an untrusted remote URL (icon / screenshot / author URL).
+	 * Accepts only syntactically valid absolute http(s) URLs. Rejects
+	 * javascript:, data:, schemeless values and any attribute-breaking
+	 * characters (quotes, spaces, angle brackets — all refused by
+	 * FILTER_VALIDATE_URL). Returns '' when invalid so callers can drop it.
+	 *
+	 * @param  string $url
+	 * @return string
+	 */
+	private function sanitizeRemoteUrl($url)
+	{
+		$url = trim((string) $url);
+
+		if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false)
+		{
+			return '';
+		}
+
+		$scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+		if ($scheme !== 'http' && $scheme !== 'https')
+		{
+			return '';
+		}
+
+		return $url;
+	}
+
+
+	/**
 	 * Build zip download URL.
 	 * https://github.com/{org}/{repo}/archive/refs/heads/{branch}.zip
 	 *
 	 * @param  string $org
 	 * @param  string $repo
 	 * @param  string $branch
-	 * @return string
+	 * @return string  Empty string when any segment is invalid.
 	 */
 	private function buildDownloadUrl($org, $repo, $branch)
 	{
+		if (!$this->isValidSegment($org) || !$this->isValidSegment($repo) || !$this->isValidSegment($branch))
+		{
+			return '';
+		}
+
 		return 'https://github.com/' . $org . '/' . $repo
 			. '/archive/refs/heads/' . $branch . '.zip';
 	}
@@ -564,6 +633,12 @@ class e_marketplace
 	 */
 	private function buildRawBase($org, $repo, $branch, $folder, $type = 'plugin')
 	{
+		if (!$this->isValidSegment($org) || !$this->isValidSegment($repo)
+			|| !$this->isValidSegment($branch) || !$this->isValidSegment($folder))
+		{
+			return '';
+		}
+
 		$dir = ($type === 'theme') ? 'e107_themes' : 'e107_plugins';
 
 		return 'https://raw.githubusercontent.com/'
@@ -583,7 +658,14 @@ class e_marketplace
 	 */
 	private function buildRawUrl($org, $repo, $branch, $folder, $type = 'plugin')
 	{
-		return $this->buildRawBase($org, $repo, $branch, $folder, $type) . '/plugin.xml';
+		$base = $this->buildRawBase($org, $repo, $branch, $folder, $type);
+
+		if ($base === '')
+		{
+			return '';
+		}
+
+		return $base . '/plugin.xml';
 	}
 
 }
