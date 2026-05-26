@@ -286,9 +286,6 @@ if (isset($_POST['previous_steps']))
 $e107_paths = array();
 $e107 = e107::getInstance();
 
-$e107->site_path = (isset($tmp['paths']) && isset($tmp['paths']['hash'])) ? $tmp['paths']['hash'] : "[hash]"; // placeholder 
-$e107_paths = $e107->defaultDirs($ret);
-
 $ebase = realpath(__DIR__);
 
 if ($e107->initInstall($e107_paths, $ebase, $override) === false)
@@ -724,9 +721,22 @@ class e_install
 			$this->previous_steps['mysql']['db']        = trim($tp->filter($_POST['db']));
 			$this->previous_steps['mysql']['createdb']  = isset($_POST['createdb']) && $_POST['createdb'] == true;
 			$this->previous_steps['mysql']['prefix']    = trim($tp->filter($_POST['prefix']));
-
-			$this->setDb();
 		}
+		else
+		{
+			// "Back" case: stage-3 fields are absent from $_POST, so reuse the
+			// values already stored (and filtered) on the earlier visit instead
+			// of overwriting them with empty strings. Empty string is only a
+			// last-resort default for a genuine first visit with no data.
+			$this->previous_steps['mysql']['server']    = $this->previous_steps['mysql']['server']   ?? '';
+			$this->previous_steps['mysql']['user']      = $this->previous_steps['mysql']['user']     ?? '';
+			$this->previous_steps['mysql']['password']  = $this->previous_steps['mysql']['password'] ?? '';
+			$this->previous_steps['mysql']['db']        = $this->previous_steps['mysql']['db']       ?? '';
+			$this->previous_steps['mysql']['createdb']  = $this->previous_steps['mysql']['createdb'] ?? false;
+			$this->previous_steps['mysql']['prefix']    = $this->previous_steps['mysql']['prefix']   ?? '';
+		}
+
+		$this->setDb();
 
 		if (!empty($_POST['overwritedb']))
 		{
@@ -1414,41 +1424,10 @@ class e_install
 		return $ret;
 	}
 
-	/**
-	 * Resolve any remaining "[hash]" placeholders in $this->e107->e107_dirs
-	 * and strip the duplicated site_path segment from the multisite
-	 * SYSTEM_DIRECTORY and MEDIA_DIRECTORY entries.
-	 *
-	 * Normally updatePaths() (called from stage_5) has already cleared every
-	 * "[hash]" before stage_7 runs, but if stage_7() or import_configuration()
-	 * is invoked without updatePaths() running first (e.g. a custom migration
-	 * script reusing install internals), the previous implementation left a
-	 * literal "[hash]" substring in every derived directory key. See #5631.
-	 *
-	 * @return null
-	 */
-	private function resolveSitePathPlaceholders()
-	{
-		foreach($this->e107->e107_dirs as $key => $path)
-		{
-			if(is_string($path) && strpos($path, '[hash]') !== false)
-			{
-				$this->e107->e107_dirs[$key] = str_replace('[hash]', $this->e107->site_path, $path);
-			}
-		}
-
-		$this->e107->e107_dirs['SYSTEM_DIRECTORY'] = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['SYSTEM_DIRECTORY']);
-		$this->e107->e107_dirs['MEDIA_DIRECTORY']  = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['MEDIA_DIRECTORY']);
-
-		return null;
-	}
-
 	private function stage_7()
 	{
 		global $e_forms;
 		$tp = e107::getParser();
-
-		$this->resolveSitePathPlaceholders();
 
 		$this->stage = 7;
 		installLog::add('Stage 7 started');
@@ -1628,6 +1607,8 @@ return [
 	{
 		global $e_forms;
 
+
+
 		//$system_dir = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['SYSTEM_DIRECTORY']);
 		//$media_dir = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['MEDIA_DIRECTORY']);
 
@@ -1701,7 +1682,32 @@ return [
 	<class name="main" type="zip,gz,rar,jpg,jpeg,png,gif,webp,xml,pdf,ppt,pptx,mov,mp4,mp3,doc,docx,xls,xlsm,mp3,mp4,wav,ogg,webm,mid,midi,torrent,txt,dmg,msi" maxupload="50M" />
 </e107Filetypes>';
 
-		return file_put_contents($this->e107->e107_dirs['SYSTEM_DIRECTORY'] . "filetypes.xml", $data);
+		$path = $this->e107->e107_dirs['SYSTEM_DIRECTORY'];
+
+		if (!is_dir($path))
+		{
+			@mkdir($path, 0755, true);
+
+			if (!is_dir($path))
+			{
+				installLog::add('Could not create system directory for filetypes.xml: ' . $path, "error");
+				return false;
+			}
+		}
+
+		$target = $path . "filetypes.xml";
+
+		$result = file_put_contents($target, $data);
+
+		if ($result === false)
+		{
+			installLog::add('Could not write filetypes.xml to: ' . $target, "error");
+			return false;
+		}
+
+		installLog::add('filetypes.xml created successfully at: ' . $target);
+
+		return $result;
 	}
 
 
@@ -2371,11 +2377,11 @@ return [
 	private function setDb()
 	{
 		$sqlInfo = array(
-			'mySQLserver'       => $this->previous_steps['mysql']['server'],
-			'mySQLuser'         => $this->previous_steps['mysql']['user'],
-			'mySQLpassword'     => $this->previous_steps['mysql']['password'],
-			'mySQLdefaultdb'    => $this->previous_steps['mysql']['db'],
-			'mySQLprefix'       => $this->previous_steps['mysql']['prefix']
+			'mySQLserver'       => $this->previous_steps['mysql']['server']   ?? '',
+			'mySQLuser'         => $this->previous_steps['mysql']['user']     ?? '',
+			'mySQLpassword'     => $this->previous_steps['mysql']['password'] ?? '',
+			'mySQLdefaultdb'    => $this->previous_steps['mysql']['db']       ?? '',
+			'mySQLprefix'       => $this->previous_steps['mysql']['prefix']   ?? ''
 		);
 
 		$this->e107->initInstallSql($sqlInfo);

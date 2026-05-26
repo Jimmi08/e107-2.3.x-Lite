@@ -4860,8 +4860,7 @@ class e_admin_controller_ui extends e_admin_controller
 	 */
 	public function getParentChildQry($orderby=false)
 	{
-		// LITE MODIFICATION: SQL_CALC_FOUND_ROWS for pagination row count (deprecated in MySQL 8 — revisit)
-		return 'SELECT SQL_CALC_FOUND_ROWS * FROM `#' .$this->getTableName(). '` ';
+		return 'SELECT * FROM `#' .$this->getTableName(). '` ';
 	}
 
 	/**
@@ -5460,8 +5459,7 @@ class e_admin_controller_ui extends e_admin_controller
 		//file_put_contents(e_LOG.'uiAjaxResponseFields.log', print_r($this->getFields(), true)."\n\n", FILE_APPEND);
 		if($joinData)
 		{
-			// LITE MODIFICATION: SQL_CALC_FOUND_ROWS for pagination row count (deprecated in MySQL 8 — revisit)
-			$qry = 'SELECT SQL_CALC_FOUND_ROWS ' . $tableSFields;
+			$qry = 'SELECT ' . $tableSFields;
 			foreach($joinData as $jtable => $tparams)
 			{
 				// Select fields
@@ -5519,8 +5517,7 @@ class e_admin_controller_ui extends e_admin_controller
 			}
 			else
 			{
-				// LITE MODIFICATION: SQL_CALC_FOUND_ROWS for pagination row count (deprecated in MySQL 8 — revisit)
-				$qry = 'SELECT SQL_CALC_FOUND_ROWS ' . $tableSFields . ' FROM ' . $tableFrom;
+				$qry = 'SELECT ' . $tableSFields . ' FROM ' . $tableFrom;
 			}
 
 		}
@@ -5651,6 +5648,30 @@ class e_admin_controller_ui extends e_admin_controller
 		// print_a($this->fields);
 
 		$this->_log('listQry: ' . str_replace('#', MPREFIX, $qry));
+
+		// JSON encode the debug data
+		$debugData['intermediateStates']['listQryBeforeFinal'] = $listQry;
+
+		$debugData['expected'] = $qry;
+		$jsonDebugInfo = json_encode($debugData, JSON_PRETTY_PRINT);
+
+		// Optionally log the JSON data to a file for inspection
+		if($generateTest && !e107::isCli())
+		{
+			$path = e_BASE."e107_tests/tests/_data/e_admin_ui/_modifyListQrySearch/".sha1($jsonDebugInfo).".json";
+			if(file_put_contents($path, $jsonDebugInfo . PHP_EOL, FILE_APPEND))
+			{
+				e107::getMessage()->addDebug('Saved test info to ' . $path);
+			}
+		}
+
+
+		// Print to the debug interface (optional, can overload logs)
+			if(E107_DEBUG_LEVEL == E107_DBG_SQLQUERIES)
+			{
+				e107::getMessage()->addDebug('<pre>' . $jsonDebugInfo . '</pre>');
+			}
+
 
 		return $qry;
 	}
@@ -6755,6 +6776,7 @@ class e_admin_ui extends e_admin_controller_ui
 
 		$this->addTitle();
 
+		
 	}
 
 	/**

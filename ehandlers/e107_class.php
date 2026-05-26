@@ -811,18 +811,18 @@ class e107
 	public function defaultDirs($override_root = array(), $return_root = false)
 	{
 		$ret = array_merge(array(
-			'ADMIN_DIRECTORY' 		=> 'e107_admin/',
-			'IMAGES_DIRECTORY' 		=> 'e107_images/',
-			'THEMES_DIRECTORY' 		=> 'e107_themes/',
-			'PLUGINS_DIRECTORY' 	=> 'e107_plugins/',
-			'FILES_DIRECTORY' 		=> 'e107_files/', // DEPRECATED!!!
-			'HANDLERS_DIRECTORY' 	=> 'e107_handlers/',
-			'LANGUAGES_DIRECTORY' 	=> 'e107_languages/',
-			'DOCS_DIRECTORY' 		=> 'e107_docs/',
-			'MEDIA_DIRECTORY' 		=> 'e107_media/',
-			'SYSTEM_DIRECTORY' 		=> 'e107_system/',
-			'CORE_DIRECTORY' 		=> 'e107_core/',
-			'WEB_DIRECTORY' 		=> 'e107_web/',
+			'ADMIN_DIRECTORY' 		=> 'eadmin/',
+			'IMAGES_DIRECTORY' 		=> 'eimages/',
+			'THEMES_DIRECTORY' 		=> 'ethemes/',
+			'PLUGINS_DIRECTORY' 	=> 'eplugins/',
+			'FILES_DIRECTORY' 		=> 'efiles/', // DEPRECATED!!!
+			'HANDLERS_DIRECTORY' 	=> 'ehandlers/',
+			'LANGUAGES_DIRECTORY' 	=> 'elanguages/',
+			'DOCS_DIRECTORY' 		=> 'edocs/',
+			'MEDIA_DIRECTORY' 		=> 'emedia/',
+			'SYSTEM_DIRECTORY' 		=> 'esystem/',
+			'CORE_DIRECTORY' 		=> 'ecore/',
+			'WEB_DIRECTORY' 		=> 'eweb/',
 		), (array) $override_root);
 
 		$ret['MEDIA_BASE_DIRECTORY'] = $ret['MEDIA_DIRECTORY'];
@@ -5677,14 +5677,34 @@ class e107
 	 */
 	public function set_urls_deferred()
 	{
+		$siteurl = self::getPref('siteurl');
+		$configured_host = parse_url($siteurl, PHP_URL_HOST);
+		$http_host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+
+		$allowed_hosts = array();
+		if(!empty($configured_host))
+		{
+			$allowed_hosts[] = $configured_host;
+		}
+		$trusted_hosts_pref = self::getPref('trusted_hosts');
+		if(!empty($trusted_hosts_pref))
+		{
+			$allowed_hosts = array_merge($allowed_hosts, (array) $trusted_hosts_pref);
+		}
+
 		if(self::isCli())
 		{
 			define('SITEURL', self::getPref('siteurl'));
 			define('SITEURLBASE', rtrim(SITEURL,'/'));
 		}
+		elseif(!empty($configured_host) && strpos($siteurl,'http')!== false && !$this->isAllowedHost($allowed_hosts, $http_host))
+		{
+			error_log('e107 host check: HTTP_HOST '.var_export($http_host, true).' is not allowed by the configured siteurl preference '.var_export($siteurl, true).' or any of the configured `trusted_hosts` pref entries');
+			$this->renderHostMismatchKillswitch();
+		}
 		else
 		{
-			define('SITEURLBASE', $this->HTTP_SCHEME.'://'. filter_var($_SERVER['HTTP_HOST'], FILTER_SANITIZE_URL));
+			define('SITEURLBASE', $this->HTTP_SCHEME.'://'. filter_var($http_host, FILTER_SANITIZE_URL));
 			define('SITEURL', SITEURLBASE.e_HTTP);
 		}
 
@@ -5692,6 +5712,151 @@ class e107
 
 
 		return $this;
+	}
+
+	/**
+	 * Test whether $httpHost is accepted by one or more configured hosts.
+	 *
+	 * Both sides are passed through `normaliseHost()` first, so a leading
+	 * `www.`, a trailing `:port`, and case differences don't matter for the
+	 * comparison. After normalisation, a host is accepted when it equals an
+	 * allowed host or is a subdomain of one.
+	 *
+	 * @param string|array $allowedHosts one host or a list of hosts.
+	 * @param string       $httpHost     the incoming `HTTP_HOST`.
+	 *
+	 * @return bool
+	 */
+	private function isAllowedHost($allowedHosts, $httpHost)
+	{
+		$httpHost = self::normaliseHost($httpHost);
+		if($httpHost === '')
+		{
+			return false;
+		}
+
+		foreach((array) $allowedHosts as $allowedHost)
+		{
+			$allowedHost = self::normaliseHost($allowedHost);
+			if($allowedHost === '')
+			{
+				continue;
+			}
+
+			if($httpHost === $allowedHost
+				|| substr($httpHost, -strlen('.' . $allowedHost)) === '.' . $allowedHost)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Normalise a hostname for comparison: lowercase, strip a trailing
+	 * `:port`, strip a leading `www.`.
+	 *
+	 * Both sides of the host check run through this so the configured
+	 * `Example.com` matches a visited `WWW.example.com:8080` and vice versa.
+	 * The port strip targets the `HTTP_HOST` value (which retains the visited
+	 * port) since `parse_url(PHP_URL_HOST)` already drops the port from
+	 * `siteurl`; applying it symmetrically keeps any manually-entered
+	 * `trusted_hosts` entries that include a port from silently never matching.
+	 *
+	 * @param string $host
+	 *
+	 * @return string
+	 */
+	private static function normaliseHost($host)
+	{
+		$host = strtolower((string) $host);
+		$host = preg_replace('/:\d+$/', '', $host);
+		$host = preg_replace('/^www\./', '', $host);
+		return $host;
+	}
+
+	/**
+	 * Normalise the `trusted_hosts` admin-form input into a list of bare
+	 * hostnames suitable for the `trusted_hosts` SitePref.
+	 *
+	 * Accepts a newline-separated string (the textarea body) or an array
+	 * (legacy callers). For each entry it strips a surrounding scheme/path,
+	 * lowercases the host, strips a trailing `:port` and a leading `www.`,
+	 * drops blanks, and de-duplicates case-insensitively. So an admin can
+	 * paste `https://Staging.Example.com/foo` and the saved value is
+	 * `staging.example.com`.
+	 *
+	 * @param string|array $input
+	 *
+	 * @return string[]
+	 */
+	public static function normaliseTrustedHostList($input)
+	{
+		$lines = is_array($input) ? $input : preg_split('/\r\n|\r|\n/', (string) $input);
+		$hosts = array();
+		foreach($lines as $line)
+		{
+			$line = trim((string) $line);
+			if($line === '')
+			{
+				continue;
+			}
+			if(strpos($line, '://') === false)
+			{
+				$line = 'http://' . $line;
+			}
+			$host = parse_url($line, PHP_URL_HOST);
+			if(!is_string($host) || $host === '')
+			{
+				continue;
+			}
+			$host = self::normaliseHost($host);
+			if($host === '')
+			{
+				continue;
+			}
+			if(!in_array($host, $hosts, true))
+			{
+				$hosts[] = $host;
+			}
+		}
+		return $hosts;
+	}
+
+	/**
+	 * Emit a 503 Service Unavailable response and terminate the request.
+	 *
+	 * Fires when `set_urls_deferred()` rejects the incoming `Host` header. The
+	 * response is rendered inline because none of the theme, plugin, or session
+	 * bootstrap has run yet at this point.
+	 *
+	 * The body intentionally carries no diagnostic detail (no echo of the
+	 * incoming `Host`, no configured hostname, no admin URL). The diagnostic
+	 * detail is sent to `error_log()` by the caller, which is the channel that
+	 * already requires server access.
+	 *
+	 * @return void
+	 */
+	private function renderHostMismatchKillswitch()
+	{
+		if(!headers_sent())
+		{
+			header('HTTP/1.1 503 Service Unavailable');
+			header('Content-Type: text/html; charset=utf-8');
+			header('Cache-Control: no-store');
+		}
+
+		echo "<!DOCTYPE html>\n";
+		echo "<html lang=\"en\"><head>";
+		echo "<meta charset=\"utf-8\">";
+		echo "<title>Site Configuration Issue</title>";
+		echo "</head><body>";
+		echo "<h1>Site Configuration Issue Detected</h1>";
+		echo "<p>The site administrator should check the server error log for details.</p>";
+		echo "</body></html>\n";
+
+		exit;
 	}
 
 	/**
