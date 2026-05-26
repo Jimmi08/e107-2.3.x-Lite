@@ -4551,9 +4551,14 @@ var_dump($select_options);*/
 
 
 		// navbar-header nav-header
-		// navbar-header nav-header
+		// LITE MODIFICATION: options icon via toGlyph() instead of a hardcoded
+		// <i class="fas fa-sliders">. Upstream hardcodes the FA6 name
+		// "fa-sliders", invisible on Font Awesome 5. toGlyph() resolves the
+		// name through the FA shims map for the active FA version, so it works
+		// on FA5 and FA6 alike. Reported upstream — hardcoded icon should be
+		// glyph().
 		$text = '<div class="col-selection dropdown e-tip pull-right float-right" data-placement="left">
-    <a class="dropdown-toggle" title="'.LAN_EFORM_008.'" data-toggle="dropdown" data-bs-toggle="dropdown" href="#"><i class="icon fas fa-sliders"></i></a>
+    <a class="dropdown-toggle" title="'.LAN_EFORM_008.'" data-toggle="dropdown" data-bs-toggle="dropdown" href="#">'. e107::getParser()->toGlyph('fa-sliders.glyph').'</a>
     <ul class="list-group dropdown-menu  col-selection e-noclick" role="menu" aria-labelledby="dLabel">
    
     <li class="list-group-item "><h5 class="list-group-item-heading">' . LAN_EFORM_009 . '</h5></li>
