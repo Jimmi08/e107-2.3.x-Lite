@@ -1628,6 +1628,8 @@ return [
 	{
 		global $e_forms;
 
+		$this->resolveSitePathPlaceholders();
+
 		//$system_dir = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['SYSTEM_DIRECTORY']);
 		//$media_dir = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['MEDIA_DIRECTORY']);
 
@@ -1701,7 +1703,32 @@ return [
 	<class name="main" type="zip,gz,rar,jpg,jpeg,png,gif,webp,xml,pdf,ppt,pptx,mov,mp4,mp3,doc,docx,xls,xlsm,mp3,mp4,wav,ogg,webm,mid,midi,torrent,txt,dmg,msi" maxupload="50M" />
 </e107Filetypes>';
 
-		return file_put_contents($this->e107->e107_dirs['SYSTEM_DIRECTORY'] . "filetypes.xml", $data);
+		$path = $this->e107->e107_dirs['SYSTEM_DIRECTORY'];
+
+		if (!is_dir($path))
+		{
+			@mkdir($path, 0755, true);
+
+			if (!is_dir($path))
+			{
+				installLog::add('Could not create system directory for filetypes.xml: ' . $path, "error");
+				return false;
+			}
+		}
+
+		$target = $path . "filetypes.xml";
+
+		$result = file_put_contents($target, $data);
+
+		if ($result === false)
+		{
+			installLog::add('Could not write filetypes.xml to: ' . $target, "error");
+			return false;
+		}
+
+		installLog::add('filetypes.xml created successfully at: ' . $target);
+
+		return $result;
 	}
 
 
