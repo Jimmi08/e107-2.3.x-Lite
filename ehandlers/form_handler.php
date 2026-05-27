@@ -5287,6 +5287,7 @@ var_dump($select_options);*/
 
 			$att = [
 					'href'               => e_SELF . "?$query",
+					// $eModal includes its own leading+trailing spaces (' e-modal ' or '')
 					'class'              => "btn btn-default btn-success$eModal",
 					'data-modal-caption' => $eModalCap,
 					'title'              => LAN_EDIT,
