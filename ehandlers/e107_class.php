@@ -3837,7 +3837,15 @@ class e107
 		// Use basename of the path as a cache key (e.g., "Spanish_global.php")
 		$file_key = basename($path);
 
-		static $english_terms = []; // Cache English terms by file key
+		// LITE MODIFICATION: `static` deliberately removed.
+		// Upstream's static cache uses basename($path) as the key,
+		// which collides between language files with the same
+		// basename in different directories (e.g.
+		// admin/lan_users.php vs lan_users.php), causing the English
+		// fallback for missing translations to silently stop
+		// working. Reported upstream as e107inc/e107#5682 — restore
+		// `static` only after upstream fixes the cache.
+		$english_terms = []; // Cache English terms by file key
 
 		// Define constants from the current language’s array first
 		if(!empty($terms) && is_array($terms))
