@@ -1937,7 +1937,7 @@ class e107
         {
             $fileInspector->loadDatabase();
         }
-        catch (Exception $e)
+        catch (Throwable $e)
         {
             // TODO: LAN
             self::getMessage()->addWarning(
@@ -3837,7 +3837,7 @@ class e107
 		// Use basename of the path as a cache key (e.g., "Spanish_global.php")
 		$file_key = basename($path);
 
-		$english_terms = []; // Cache English terms by file key
+		static $english_terms = []; // Cache English terms by file key
 
 		// Define constants from the current language’s array first
 		if(!empty($terms) && is_array($terms))

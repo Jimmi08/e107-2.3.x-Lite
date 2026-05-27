@@ -1449,7 +1449,7 @@ class e_user_provider
 			if (T_VARIABLE == $adapterTokens[$index][0])
 			{
 				$supplementalFieldPathSplit = self::adapterTokenParseConfig($adapterTokens, $index, null);
-				if (!is_null($supplementalFieldPathSplit))
+				if (!empty($supplementalFieldPathSplit))
 				{
 					$value = $rawDocumentation;
 					$level = [];
@@ -2018,23 +2018,6 @@ class e_userperms
 			$key = "P".$pg->getId();
 			$this->plugin_perms[$key] = $arr;
 		}
-
-/*
-		$plg = e107::getPlugin();
-		$allPlugins = $plg->getall(1); // Needs all for 'reading' and 'installed' for writing.
-
-		foreach($allPlugins as $k=>$row2)
-		{
-			if($plg->parse_plugin($row2['plugin_path']))
-			{
-				$plug_vars = $plg->plug_vars;
-				$this->plugin_perms[("P".$row2['plugin_id'])] = array($tp->toHTML($row2['plugin_name'], false, 'RAWTEXT,defs'));
-				$this->plugin_perms[("P".$row2['plugin_id'])][1] = $plg->getIcon($row2['plugin_path'],16);
-				$this->plugin_perms[("P".$row2['plugin_id'])][2] = $plg->getIcon($row2['plugin_path'],32);
-			}
-		}
-*/
-
 
 		asort($this->plugin_perms);
 

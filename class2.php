@@ -509,11 +509,9 @@ if(!empty($pref['redirectsiteurl']) && !empty($pref['siteurl'])) {
 				$aeSELF[2] = $aPrefURL[2];  // Swap in correct domain and possibly port
 				$location = implode('/',$aeSELF).($_SERVER['QUERY_STRING'] ? '?'.$_SERVER['QUERY_STRING'] : '');
 				$location = filter_var($location, FILTER_SANITIZE_URL);
-			//
-		//	header("Location: {$location}", true, 301); // send 301 header, not 302
 			if(defined('e_DEBUG') && e_DEBUG === true)
 			{
-				echo "DEBUG INFO: site-redirect preference enabled.<br />Redirecting to: <a hre='".$location."'>".$location. '</a>';
+				echo "DEBUG INFO: site-redirect preference enabled.<br />Redirecting to: <a href='".$location."'>".$location. '</a>';
                 echo '<br />e_DOMAIN: ' .e_DOMAIN;
 				echo '<br />e_SUBDOMAIN: ' .e_SUBDOMAIN;
 			}

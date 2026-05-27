@@ -331,7 +331,7 @@ class usersettings_front // Begin Usersettings rewrite.
 				$_uid = $inp;
 				$info = e107::user($inp);
 				//Only site admin is able to change setting for other admins
-				if (!is_array($info) || ($info['user_admin'] == 1 && !getperms('0')))
+				if (!is_array($info) || ($info['user_admin'] == 1 && !getperms('0')) || (!getperms('0') && !getperms('4')))
 				{
 					e107::redirect();
 					exit();

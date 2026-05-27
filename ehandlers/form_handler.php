@@ -3802,7 +3802,7 @@ var_dump($select_options);*/
 		{
 			case 'edit':
 				$icon = deftrue('e_ADMIN_AREA') ? defset('ADMIN_EDIT_ICON') : $tp->toIcon('e-edit-32');
-				$options['class'] = $options['class'] === 'action' ? 'btn btn-success btn-success action edit' : $options['class'];
+				$options['class'] = $options['class'] === 'action' ? 'btn btn-success action edit' : $options['class'];
 			break;
 
 			case 'delete':
@@ -5287,7 +5287,7 @@ var_dump($select_options);*/
 
 			$att = [
 					'href'               => e_SELF . "?$query",
-					'class'              => "btn btn-success $eModal",
+					'class'              => "btn btn-default btn-success$eModal",
 					'data-modal-caption' => $eModalCap,
 					'title'              => LAN_EDIT,
 			//		'data-toggle'        => 'tooltip',

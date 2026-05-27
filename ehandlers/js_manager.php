@@ -1078,7 +1078,7 @@ class e_jsmanager
 				$plugfile_path = $runtime_location.$this->_sep.'{e_PLUGIN}'.$pfile_path[0].'/'.trim($pfile_path[1], '/').$this->_sep.$pre.$this->_sep.$post;
 
 				// allow for URLs to be attributed to plugins. (loads after theme css in admin area header)
-				$file_path = ((strpos($pfile_path[1], 'http') !== 0 && strpos($pfile_path[1], '//') !== 0)) ? $plugfile_path : 'all'.$this->_sep.$pfile_path[1].$this->_sep.$pre.$this->_sep.$post;;
+				$file_path = ((strpos($pfile_path[1], 'http') !== 0 && strpos($pfile_path[1], '//') !== 0)) ? $plugfile_path : 'all'.$this->_sep.$pfile_path[1].$this->_sep.$pre.$this->_sep.$post;
 				if(!isset($this->_e_css['plugin'])) $this->_e_css['plugin'] = array();
 				$registry = &$this->_e_css['plugin'];
 				$runtime = true;
