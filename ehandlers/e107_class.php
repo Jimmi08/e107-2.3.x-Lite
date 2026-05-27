@@ -1738,6 +1738,11 @@ class e107
 	 */
 	public static function getRate()
 	{
+		// LITE MODIFICATION: isInstalled() guard.
+		// comment / rater are externalised plugins in Lite (not part of
+		// core). The guard prevents getSingleton() from failing when the
+		// plugin is absent. Remove only if comment/rater come back into
+		// core.
 		if (!e107::isInstalled('rater'))
 		{
 			return null;
@@ -2316,6 +2321,11 @@ class e107
 	 */
 	public static function getComment()
 	{
+		// LITE MODIFICATION: isInstalled() guard.
+		// comment / rater are externalised plugins in Lite (not part of
+		// core). The guard prevents getSingleton() from failing when the
+		// plugin is absent. Remove only if comment/rater come back into
+		// core.
 		if (!e107::isInstalled('comment'))
 		{
 			return null;

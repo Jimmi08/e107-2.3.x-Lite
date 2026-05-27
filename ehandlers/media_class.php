@@ -568,7 +568,13 @@ class e_media
 		}
 		else
 		{
-			$query .= " ORDER BY media_id DESC"; // TODO CORE FIX places the specified category before the _common categories.
+			// LITE MODIFICATION: media_category ASC dropped from default
+			// ORDER BY (kept only media_id DESC). Upstream's category sort
+			// ordered images incorrectly in our case. Revert only if upstream
+			// fixes the category sort or our usage changes.
+			// Sort by media_id DESC only — Lite drops upstream's category
+			// pre-sort (see LITE MODIFICATION above).
+			$query .= " ORDER BY media_id DESC";
 		}
 
 		if($amount == 'all')

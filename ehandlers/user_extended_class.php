@@ -1185,6 +1185,10 @@ class e107_user_extended
 		$tp = e107::getParser();
 		$frm = e107::getForm();
  
+		// LITE MODIFICATION: is_string() guard before trim().
+		// PHP 7.4/8 hardening — passing a non-string to trim() emits a
+		// deprecation notice on PHP 8.1+. Upstream lacks the guard.
+		// Remove only if upstream adopts an equivalent guard.
 		if (is_string($curval))
 		{
 			$curval = trim($curval);
@@ -1925,6 +1929,11 @@ class e107_user_extended
 
 
 	// Custom function to generate date select fields
+// LITE MODIFICATION: custom_date_select() method for the
+// user_birthday extended field. Lite renders birthday as three
+// DD/MM/YYYY dropdowns feeding a hidden input, with inline JS
+// validation, instead of upstream's single date picker. Revert
+// only if Lite's birthday UX changes.
 function custom_date_select($name, $curval = '', $opts = array(), $required = "") {
     $output = '';
  

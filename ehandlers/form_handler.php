@@ -8027,6 +8027,10 @@ var_dump($select_options);*/
 
 		$writeParms = $att['writeParms'];
 
+		// LITE MODIFICATION: label suppression for bbarea/method fields.
+		// Upstream emits labels here in all cases; Lite suppresses them
+		// for these field types. Intentional Lite UI choice. Remove only
+		// if Lite's form rendering convention changes.
 		if ((vartrue($att['type']) === 'bbarea' || vartrue($att['type']) === 'method') && !empty($writeParms['nolabel']))
 		{
 			$text = "

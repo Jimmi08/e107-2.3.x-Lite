@@ -735,6 +735,11 @@ class language{
 	 * Define Legacy LAN constants based on a supplied array.
 	 * @param array $bcList legacyLAN => Replacement-LAN
 	 */
+	// LITE MODIFICATION: bcDefs() default array reduced to a single
+	// mapping. Lite drops upstream's ~25-entry v1.x legacy LAN
+	// graveyard per the no-legacy principle. DO NOT port upstream's
+	// fuller list when syncing — Lite intentionally does not support
+	// pre-2.x LAN constant compatibility.
 	public function bcDefs($bcList = null)
 	{
 

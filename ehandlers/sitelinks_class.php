@@ -937,6 +937,10 @@ i.e-cat_users-32{ background-position: -555px 0; width: 32px; height: 32px; }
 				 *
 				 */
 				$array_sub_functions = array();
+			// LITE MODIFICATION: news/docs admin links removed.
+			// News migrates to a separate plugin repo (#31); docs section
+			// dropped. DO NOT restore these links when syncing — Lite
+			// intentionally does not surface them in core admin.
 			//	$array_sub_functions[17][] = array(e_ADMIN.'newspost.php', LAN_MANAGE, ADLAN_3, 'H', 3, E_16_MANAGE, E_32_MANAGE);
 			//	$array_sub_functions[17][] = array(e_ADMIN.'newspost.php?create', LAN_CREATE, ADLAN_2, 'H', 3, E_16_CREATE, E_32_CREATE);
 			//	$array_sub_functions[17][] = array(e_ADMIN.'newspost.php?pref', LAN_PREFS, LAN_PREFS, 'H', 3, E_16_SETTINGS, E_32_SETTINGS);	
@@ -1257,6 +1261,11 @@ i.e-cat_users-32{ background-position: -555px 0; width: 32px; height: 32px; }
 		
 		if (!$tmpl)
 		{
+			// LITE MODIFICATION: admin-menu template override allowed.
+			// $override=true (vs upstream's false) lets a custom admin theme
+			// override the admin-menu template. Lite uses its own `backend`
+			// admin theme. Revert to false only if Lite stops shipping its
+			// own admin theme.
 			$tmpl = e107::getCoreTemplate('admin', 'menu', true);
 		}
 	

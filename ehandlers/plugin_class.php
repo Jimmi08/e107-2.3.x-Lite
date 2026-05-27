@@ -1878,10 +1878,17 @@ class e107plugin
 				$sql->delete('plugin', "`plugin_id`={$plug_info['plugin_id']}");
 				//			echo "Deleted: ".$plug_path."<br />";
 
+				// LITE MODIFICATION: plug_installed orphan cleanup.
+				// Lite externalises plugins to separate repositories, so plugins
+				// genuinely disappear from disk. When a plugin row is deleted
+				// because the folder is gone, Lite also unsets the matching
+				// plug_installed pref entry, and a follow-up loop removes any
+				// pref entry whose folder no longer exists. Stale-pref hygiene
+				// not needed in upstream's bundled-plugins model.
 				if (isset($p_installed[$plug_path]))
 				{
 					unset($p_installed[$plug_path]);
-					$sp = TRUE; // triggers pref save + rebuildUrlConfig + cache clear at line 1892
+					$sp = TRUE; // triggers pref save + rebuildUrlConfig + cache clear
 				}
 				}
 			if ($plug_info['status'] == 'update')
@@ -4450,6 +4457,12 @@ class e107plugin
 			if (class_exists($class_name))
 			{
 				$obj = new $class_name;
+				// LITE MODIFICATION: version_from activated.
+				// Upstream keeps this line commented out as "Not used?". Lite
+				// activates it — likely exposes the e107plugin instance to plugin
+				// setup classes. Purpose unconfirmed. Lite's eplugins/ is nearly
+				// empty so the risk is minimal. Verify whether anything depends
+				// on this before removing.
 				$obj->version_from = $this;
 				
 				if (method_exists($obj, $method_name))
