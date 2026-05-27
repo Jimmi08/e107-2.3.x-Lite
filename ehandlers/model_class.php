@@ -3114,6 +3114,7 @@ class e_admin_model extends e_front_model
 		}
 
 	    e107::getLog()->addSuccess('TABLE: '.$table, false);
+	    e107::getLog()->addSuccess('ID: '.$res, false);
 		e107::getLog()->save('ADMINUI_01');
 	//	e107::getAdminLog()->clear()->addSuccess($table,false)->addArray($sqlQry)->save('ADMINUI_01');
 
