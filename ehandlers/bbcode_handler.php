@@ -834,6 +834,11 @@ class e_bbcode
 
 
 			$code_text = (strpos($img['src'],'http') === 0) ? $img['src'] : str_replace($tp->getUrlConstants('raw'), $tp->getUrlConstants('sc'), $qr['src']);
+			// LITE MODIFICATION: $code_text empty-string fallback.
+			// Upstream does not have this fallback. Lite falls back to
+			// $img['src'] so the emitted [img] tag is never empty when the
+			// computed code text is empty. Remove only if upstream adopts an
+			// equivalent fallback or the conversion logic changes upstream.
 			if ($code_text == '')
 			{
 				$code_text = $img['src'];

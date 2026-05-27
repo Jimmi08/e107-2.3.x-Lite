@@ -2596,6 +2596,13 @@ class themeHandler
 
 		$text = '<div style="padding-bottom:100px">';
 
+		// LITE MODIFICATION: Bootstrap 3 markup for the theme-manager nav.
+		// Lite's `backend` admin theme is Bootstrap 3 (not upstream's
+		// Bootstrap 5). Porting upstream's BS5 nav markup would visually
+		// break the admin theme manager. Revert to BS5 markup ONLY if
+		// Lite's admin `backend` theme is upgraded to Bootstrap 5.
+		// Distinct from library_manager.php — that bumps the FRONTEND
+		// library (BS 5.2 -> 5.3); admin backend stays BS3.
 		$text .= "
         
         <ul class='nav nav-tabs'>
@@ -3186,6 +3193,10 @@ class themeHandler
 			
 			$med = e107::getMedia();
 			$med->import('_common_image', e_THEME.$name, "^.*?logo.*?(\.png|\.jpeg|\.jpg|\.JPG|\.GIF|\.PNG)$");	
+			// LITE MODIFICATION: _common_image imported from theme /install/
+			// subdir, not theme root. Lite theme-packaging convention places
+			// install assets in /install/. Revert only if Lite's theme
+			// packaging convention changes.
 			$med->import('_common_image', e_THEME.$name."/install/", '', 'min-size=20000');
 			
 

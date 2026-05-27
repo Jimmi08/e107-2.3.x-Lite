@@ -321,6 +321,11 @@ class e_online
 				// FIXME - don't use constants below, save data in class vars, call e_online signleton - e107::getOnline()
 			//	$total_online = $sql->db_Count('online'); // 1 less query! :-)
 				$dbg->logTime('Go online (total_online) Line:'.__LINE__);
+				// LITE MODIFICATION: defensive init of $members_online.
+				// Prevents an undefined-variable notice on PHP 7.4/8 when the
+				// total-online query returns no rows. Upstream lacks this init.
+				// Remove only if upstream adopts the init or the query is
+				// rewritten to always return a value.
 				$members_online = 0; // Undefined variable $members_online fix
 			if ($total_online = $sql->gen('SELECT o.*,u.user_image FROM `#online` AS o LEFT JOIN `#user` AS u ON o.online_user_id = u.user_id WHERE o.online_pagecount > 0 ORDER BY o.online_timestamp DESC'))
 			//	if ($total_online = $sql->gen('SELECT o  FROM `#online`  WHERE o.online_pagecount > 0 ORDER BY o.online_timestamp DESC'))

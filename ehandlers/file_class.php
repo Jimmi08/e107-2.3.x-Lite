@@ -653,6 +653,12 @@ class e_file
 	 * @return boolean TRUE on success, FALSE on failure (which includes absence of CURL functions)
 	 */
 
+	// LITE MODIFICATION: getRemoteFile() robustness rewrite.
+	// Lite uses a more defensive remote-fetch implementation than
+	// upstream. SSRF protections (isUrlSafe/canonicalizeIp/CURLOPT_PROTOCOLS
+	// from upstream commit 60c85ba) are layered on top — DO NOT
+	// remove those when syncing. Revert to upstream only if upstream's
+	// implementation catches up on robustness.
 	function getRemoteFile($remote_url, $local_file, $type = 'temp', $timeout = 40)
 	{
 		if (!function_exists('curl_init'))
@@ -1978,6 +1984,11 @@ class e_file
 	 *                                   'folder'       — destination folder name inside e107_plugins/ or e107_themes/
 	 * @return array|bool FALSE on failure; array with 'success', 'error', 'skipped' keys on completion
 	 */
+	// LITE MODIFICATION: unzipGithubArchive() plugin/theme download
+	// rewrite. Lite handles GitHub archive download/extraction
+	// differently from upstream. When next touched, also review for
+	// path traversal in $params (organization/repo/branch/folder
+	// values reaching the extract path) and zip-slip on extraction.
 	public function unzipGithubArchive($url = 'core', $destination_path = e_BASE, $params = array())
 	{
 
