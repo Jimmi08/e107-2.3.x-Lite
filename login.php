@@ -13,18 +13,35 @@
 require_once("class2.php");
 
 
-if ((USER || e_LOGIN != e_SELF || (empty($pref['user_reg']) && !e107::getUserProvider()->isSocialLoginEnabled())) && e_QUERY !== 'preview' && !getperms('0') ) // Disable page if user logged in, or some custom e_LOGIN value is used.
-{
-	$prev = e107::getRedirect()->getPreviousUrl();
+$login_admin_redirect = !getperms('0'); // main admin (perms '0') is never bounced from login.php
+$prev = varset(e107::getRedirect()->getPreviousUrl(), SITEURL);
 
-	if(!empty($prev))
+if (e_QUERY !== 'preview' && $login_admin_redirect)
+{
+	// already logged in -> send to the previous page (or profile edit if landing here)
+	if (USER)
+	{
+		if (defined('e_PAGE') && e_PAGE == 'login.php')
+		{
+			$prev = e107::getUrl()->create('user/myprofile/edit', array('id' => USERID));
+		}
+		e107::redirect($prev);
+		exit();
+	}
+
+	// a plugin overrides the login URL -> bounce away from default login.php
+	if (e_LOGIN != e_SELF)
 	{
 		e107::redirect($prev);
 		exit();
 	}
 
-	e107::redirect();
-	exit();
+	// registration disabled (user_reg=0) and no social login -> private-site splash
+	if (empty($pref['user_reg']) && !e107::getUserProvider()->isSocialLoginEnabled())
+	{
+		e107::redirect(e_HTTP.'membersonly.php');
+		exit();
+	}
 }
 
 e107::coreLan('login');
