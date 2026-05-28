@@ -239,7 +239,7 @@ class e_file
 	 * @param string  $path
 	 * @param string  $fmask         [optional]
 	 * @param string  $omit          [optional]
-	 * @param integer $recurse_level [optional]
+	 * @param int $recurse_level [optional]
 	 * @return array of file names/paths
 	 */
 	function get_files($path, $fmask = '', $omit = 'standard', $recurse_level = 0)
@@ -1128,7 +1128,7 @@ class e_file
 	 *
 	 * @param mixed   $size     file size in bytes or file path if $retrieve is true
 	 * @param boolean $retrieve defines the type of $size
-	 * @param integer $decimal
+	 * @param int $decimal
 	 * @return string formatted size
 	 */
 	function file_size_encode($size, $retrieve = false, $decimal = 2)
@@ -1172,8 +1172,8 @@ class e_file
 	/** Recursive Chmod function.
 	 *
 	 * @param string  $path     to folder
-	 * @param integer $filemode perms for files
-	 * @param integer $dirmode  perms for directories
+	 * @param int $filemode perms for files
+	 * @param int $dirmode  perms for directories
 	 * @example chmod_R('mydir', 0644, 0755);
 	 */
 	function chmod($path, $filemode = 0644, $dirmode = 0755)

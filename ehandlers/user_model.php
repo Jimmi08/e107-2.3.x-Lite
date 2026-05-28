@@ -106,7 +106,7 @@ class e_user_model extends e_admin_model
 	/**
 	 * User class as set in user Adminsitration
 	 *
-	 * @var integer
+	 * @var int
 	 */
 	protected $_memberlist_access = null;
 
@@ -1069,7 +1069,7 @@ class e_user_model extends e_admin_model
 	 * Get user preference (advanced - slower)
 	 * @param string $pref_path
 	 * @param mixed $default
-	 * @param integer $index if number, value will be exploded by "\n" and corresponding index will be returned
+	 * @param int $index if number, value will be exploded by "\n" and corresponding index will be returned
 	 * @return mixed
 	 */
 	public function findPref($pref_path = null, $default = null, $index = null)
@@ -1951,7 +1951,7 @@ class e_user extends e_user_model
 
 	/**
 	 * Login as another user account
-	 * @param integer $user_id
+	 * @param int $user_id
 	 * @return boolean success
 	 */
 	final public function loginAs($user_id)
@@ -2370,7 +2370,7 @@ class e_user_extended_model extends e_admin_model
 	/**
 	 * User class as set in user Adminsitration
 	 *
-	 * @var integer
+	 * @var int
 	 */
 	protected $_memberlist_access = null;
 
@@ -2997,7 +2997,7 @@ class e_user_extended_structure_tree extends e_tree_model
 	/**
 	 * Get node ID by node name field
 	 * @param string $name
-	 * @return integer
+	 * @return int
 	 */
 	public function getNodeId($name)
 	{
@@ -3024,7 +3024,7 @@ class e_user_extended_structure_tree extends e_tree_model
 
 	/**
 	 * Get collection of nodes assigned to a specific category
-	 * @param integer $category_id
+	 * @param int $category_id
 	 * @return array
 	 */
 	public function getTreeByCategory($category_id)

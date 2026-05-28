@@ -196,7 +196,7 @@ class redirection
 	 * Register url in current session
 	 * @param string $name
 	 * @param string $value
-	 * @param integer $expire expire after value in seconds, null (default) - ignore
+	 * @param int $expire expire after value in seconds, null (default) - ignore
 	 * @return redirection
 	 */
 	public function setCookie($name, $value, $expire = null, $forceCookie = false)
@@ -398,7 +398,7 @@ class redirection
 	 *
 	 * @param string $url or error code number. eg. 404 = Not Found. If left empty SITEURL will be used.
 	 * @param boolean $replace - default TRUE
-	 * @param integer|null $http_response_code - default NULL
+	 * @param int|null $http_response_code - default NULL
 	 * @param boolean $preventCache
 	 * @return void
 	 */

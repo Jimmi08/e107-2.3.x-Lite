@@ -65,7 +65,7 @@ class e_session
 {
     /**
      * No protection, label 'Looking for trouble'
-     * @var integer
+     * @var int
      */
     const SECURITY_LEVEL_NONE = 0;
 
@@ -73,21 +73,21 @@ class e_session
     /**
      * Default system protection, balanced for best user experience,
      * label 'Safe mode - Balanced'
-     * @var integer
+     * @var int
      */
     const SECURITY_LEVEL_BALANCED = 5;
 
     /**
      * Adds more system security, but there is a chance (minimal) to break stuff,
      * label 'High Security'
-     * @var integer
+     * @var int
      */
     const SECURITY_LEVEL_HIGH = 7;
 
     /**
      * High system protection, session id is regenerated on every page request,
      * label 'Paranoid'
-     * @var integer
+     * @var int
      */
     const SECURITY_LEVEL_PARANOID = 9;
 

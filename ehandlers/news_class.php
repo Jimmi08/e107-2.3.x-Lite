@@ -686,7 +686,7 @@ class e_news_item extends e_front_model
 	/**
 	 * Load news item by id
 	 *
-	 * @param integer $id
+	 * @param int $id
 	 * @param boolean $force
 	 * @return e_news_item
 	 */
@@ -722,7 +722,7 @@ class e_news_tree extends e_front_tree_model
 	/**
 	 * Current tree news category id
 	 *
-	 * @var integer|array
+	 * @var int|array
 	 */
 	protected $_current_category_id;
 
@@ -757,7 +757,7 @@ class e_news_tree extends e_front_tree_model
 	/**
 	 * Load tree by category id
 	 *
-	 * @param integer $id
+	 * @param int $id
 	 * @param boolean $force
 	 * @param array $params DB query parameters
 	 * @return e_news_tree

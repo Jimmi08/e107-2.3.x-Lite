@@ -1081,13 +1081,13 @@ class eIPHandler
 	 * Returns TRUE if ban accepted.
 	 * Returns FALSE if ban not accepted (e.g. because on whitelist, or invalid IP specified)
 	 *
-	 * @param integer $bantype - either one of the BAN_TYPE_xxx constants, or a legacy value as above
+	 * @param int $bantype - either one of the BAN_TYPE_xxx constants, or a legacy value as above
 	 * @param string $ban_message
 	 * @param string $ban_ip
-	 * @param integer $ban_user
+	 * @param int $ban_user
 	 * @param string $ban_notes
 	 *
-	 * @return boolean|integer check result - FALSE if ban rejected. TRUE if ban added. 1 if IP address already banned
+	 * @return boolean|int check result - FALSE if ban rejected. TRUE if ban added. 1 if IP address already banned
 	 */
 	public function add_ban($bantype, $ban_message = '', $ban_ip = '', $ban_user = 0, $ban_notes = '')
 	{

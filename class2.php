@@ -1784,7 +1784,7 @@ if(!deftrue('e_SINGLE_ENTRY') && deftrue('e_CURRENT_PLUGIN'))
  *
  * @param string  $name
  * @param string  $value
- * @param integer $expire seconds
+ * @param int $expire seconds
  * @param string  $path
  * @param string  $domain
  * @param int     $secure

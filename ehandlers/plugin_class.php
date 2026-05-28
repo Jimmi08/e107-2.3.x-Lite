@@ -2056,7 +2056,7 @@ class e107plugin
 	/**
 	 * Normalize type
 	 * @param array $attrib parsed from XML user field definitions
-	 * @return integer type ID
+	 * @return int type ID
 	 */
 	private function ue_field_type($attrib)
 	{
@@ -2073,7 +2073,7 @@ class e107plugin
 	
 	/**
 	 * Type number to type name
-	 * @param integer $typeId
+	 * @param int $typeId
 	 * @return string type name
 	 */
 	private function ue_field_type_name($typeId)
