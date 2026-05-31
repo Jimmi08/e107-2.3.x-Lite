@@ -3537,7 +3537,10 @@ class e_parse
 	{
 
 		$ret = '';
-		//20260318 issue with contact prefs
+		// LITE MODIFICATION: early-return empty string to avoid an issue with
+		// empty contact prefs (date 20260318 fix). Without this, downstream
+		// processing on an empty $text produced incorrect output. Revert
+		// condition: upstream adds an equivalent guard in obfuscate().
 		if($text == "") return '';
  
 		foreach (str_split($text) as $letter)
