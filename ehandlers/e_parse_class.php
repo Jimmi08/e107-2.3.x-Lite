@@ -4402,7 +4402,22 @@ class e_parse
 
 		if (!empty($options['base64'])) // embed image data into URL.
 		{
-			$content = e107::getFile()->getRemoteContent($url);
+			$content = '';
+
+			if(!empty($file))
+			{
+				$content = file_get_contents($file);
+				$ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+			}
+			else
+			{
+				// Use the shared (singleton) file handler so the remote fetch
+				// can be stubbed in tests via the registry, and so repeated
+				// avatar rendering reuses one e_file instance.
+				$content = e107::getFile(true)->getRemoteContent($url);
+				$ext = strtolower(pathinfo($url, PATHINFO_EXTENSION));
+			}
+
 			if (!empty($content))
 			{
 				if(!empty($file))
