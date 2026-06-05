@@ -12,7 +12,14 @@
 
 require_once("class2.php");
 
-
+// LITE MODIFICATION: upstream's single dense if() guard rewritten
+// into four sequential cases (Refs #78) for clarity AND to fix the
+// user_reg=0 + landing=login infinite redirect loop. Upstream
+// redirects to $prev/SITEURL on registration-disabled, which loops
+// with checkMembersOnly when login.php is the members-only landing.
+// Lite redirects to membersonly.php (in self_exceptions) to break
+// the loop. Revert condition: upstream adopts a per-case structure
+// AND a non-looping target for user_reg=0.
 $login_admin_redirect = !getperms('0'); // main admin (perms '0') is never bounced from login.php
 $prev = varset(e107::getRedirect()->getPreviousUrl(), SITEURL);
 
