@@ -710,6 +710,11 @@ define('SITETAG', $tp->toHTML($pref['sitetag'], false, 'emotes_off,defs'));
 define('SITEADMIN', $pref['siteadmin']);
 define('SITEADMINEMAIL', $pref['siteadminemail']);
 
+// LITE MODIFICATION: replace YYYY with the current year in the SITEDISCLAIMER
+// constant. Upstream only does this substitution in the siteinfo shortcode, so
+// the bare constant (used e.g. by rss_menu) renders a literal "YYYY". Reported
+// upstream as e107inc/e107#5714 — drop the str_replace line and align back to
+// upstream once that is fixed.
 $sitedisclaimer = $tp->toHTML($pref['sitedisclaimer'], '', 'emotes_off,defs');
 $sitedisclaimer = str_replace("YYYY", date('Y'), $sitedisclaimer);
 define('SITEDISCLAIMER', $sitedisclaimer);
