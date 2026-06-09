@@ -1992,6 +1992,10 @@ class e_file
 	public function unzipGithubArchive($url = 'core', $destination_path = e_BASE, $params = array())
 	{
 
+		// When non-empty, only archive entries beginning with this prefix are
+		// extracted (set by the plugin/theme case to scope a monorepo to one folder).
+		$keepPrefix = '';
+
 		switch($url)
 		{
 			case "core":
@@ -2035,16 +2039,38 @@ class e_file
 				{
 					return false;
 				}
+
+				// LITE MODIFICATION: extract ONLY the requested folder from the repo
+				// archive (e107_plugins/{folder}/ or e107_themes/{folder}/), not the
+				// whole repo. $params['folder'] was previously unused on download, so a
+				// monorepo (repo=e107) unpacked every plugin plus upstream-named dirs
+				// into the site root. Standard: every plugin/theme repo reproduces the
+				// upstream path e107_plugins/{folder}/.
+				// Revert condition: only if upstream gains the same folder-scoped extract.
+				// Defense-in-depth: $params['folder'] reaches a path prefix; reject any
+				// segment with a slash or "..", though e_marketplace::isValidSegment()
+				// already validates it before this call.
+				if (strpos($params['folder'], '/') !== false
+					|| strpos($params['folder'], '\\') !== false
+					|| strpos($params['folder'], '..') !== false)
+				{
+					return false;
+				}
+
 				$zipBase    = $params['repo'] . '-' . $params['branch'];
 				$localfile  = $params['repo'] . '.zip';
 				$remotefile = 'https://codeload.github.com/' . $params['organization'] . '/' . $params['repo'] . '/zip/' . $params['branch'];
-				$excludes   = array();
-				$excludes[] = $zipBase;
+
+				$typeDir    = ($url === 'theme') ? 'e107_themes' : 'e107_plugins';
+				$destFolder = ($url === 'theme') ? e107::getFolder('THEMES') : e107::getFolder('PLUGINS');
+
+				// Only entries under this prefix survive the extraction loop.
+				$keepPrefix = $zipBase . '/' . $typeDir . '/' . $params['folder'] . '/';
+
+				$excludes     = array();
 				$excludeMatch = array();
-				$newFolders = array(
-					$zipBase . '/e107_plugins/' => e_BASE . e107::getFolder('PLUGINS'),
-					$zipBase . '/e107_themes/'  => e_BASE . e107::getFolder('THEMES'),
-					$zipBase . '/'              => e_BASE,
+				$newFolders   = array(
+					$zipBase . '/' . $typeDir . '/' => e_BASE . $destFolder,
 				);
 			break;
 
@@ -2095,6 +2121,13 @@ class e_file
 
 		foreach ($unarc as $k => $v)
 		{
+			// Folder-scoped extract: skip anything outside the requested folder.
+			if ($keepPrefix !== '' && strpos($v['stored_filename'], $keepPrefix) !== 0)
+			{
+				$skipped[] = $v['stored_filename'];
+				continue;
+			}
+
 			if (
 				$this->matchFound($v['stored_filename'], $excludeMatch) ||
 				in_array($v['stored_filename'], $excludes)
