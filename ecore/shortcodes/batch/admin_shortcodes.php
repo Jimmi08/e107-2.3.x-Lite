@@ -529,10 +529,10 @@ class admin_shortcodes extends e_shortcode
 
 					$active_uploads 	= $sql->count('upload', '(*)', 'WHERE upload_active = 0');
 					// $submitted_news 	= $sql->count('submitnews', '(*)', 'WHERE submitnews_auth = 0');
-					// $comments_pending 	= $sql->count('comments', '(*)', 'WHERE comment_blocked = 2 ');
+					$comments_pending 	= $sql->count('comments', '(*)', 'WHERE comment_blocked = 2 ');
 
 				//	$text = "<div class='left'><div style='padding-bottom: 2px;'>".E_16_NEWS.($submitted_news ? " <a href='".e_ADMIN."newspost.php?mode=sub&amp;action=list'>".ADLAN_LAT_2.": $submitted_news</a>" : ' '.ADLAN_LAT_2.': 0').'</div>';
-				//	$text .= "<div style='padding-bottom: 2px;'>".E_16_COMMENT. " <a href='".e_ADMIN_ABS."comment.php?searchquery=&filter_options=comment_blocked__2'>".ADLAN_LAT_9.": $comments_pending</a></div>";		
+				 	$text = "<div style='padding-bottom: 2px;'>".E_16_COMMENT. " <a href='".e_ADMIN_ABS."comment.php?searchquery=&filter_options=comment_blocked__2'>".ADLAN_LAT_9.": $comments_pending</a></div>";		
 		
 			//		$text .= "<div style='padding-bottom: 2px;'>".E_16_UPLOADS." <a href='".e_ADMIN."upload.php'>".ADLAN_LAT_7.": $active_uploads</a></div>";
 
@@ -543,10 +543,10 @@ class admin_shortcodes extends e_shortcode
 					// 	$oldconfigs['e-news'][0] = array('icon' =>defset('E_16_NEWS'), 'title' =>defset('ADLAN_LAT_2'), 'url' => e_ADMIN. 'newspost.php?mode=sub&amp;action=list', 'total' =>$submitted_news);
 					// }
 
-					// if(getperms('B') && empty($pref['comments_disabled']) && varset($pref['comments_engine'],'e107') === 'e107')
-					// {
-					// 	$oldconfigs['e-comment'][0] = array('icon' =>defset('E_16_COMMENT'), 'title' =>defset('ADLAN_LAT_9'), 'url' => e_ADMIN_ABS. 'comment.php?searchquery=&filter_options=comment_blocked__2', 'total' =>$comments_pending);
-					// }
+					if(getperms('B') && empty($pref['comments_disabled']) && varset($pref['comments_engine'],'e107') === 'e107')
+					{
+					 	$oldconfigs['e-comment'][0] = array('icon' =>defset('E_16_COMMENT'), 'title' =>defset('ADLAN_LAT_9'), 'url' => e_ADMIN_ABS. 'comment.php?searchquery=&filter_options=comment_blocked__2', 'total' =>$comments_pending);
+					}
 
 					if(getperms('V'))
 					{
@@ -1378,7 +1378,7 @@ class admin_shortcodes extends e_shortcode
 					$members 		= $sql->count('user', '(*)', 'WHERE user_ban=0');
 					$unverified 	= $sql->count('user', '(*)', 'WHERE user_ban=2');
 					$banned 		= $sql->count('user', '(*)', 'WHERE user_ban=1');
-					//$comments 		= $sql->count('comments');
+					$comments 		= $sql->count('comments');
 
 					/*
 					$unver = ($unverified ? " <a href='".e_ADMIN."users.php?searchquery=&amp;filter_options=user_ban__2&amp;filter=unverified'> ".ADLAN_111.": {$unverified}</a>" : ADLAN_111);
@@ -1401,10 +1401,10 @@ class admin_shortcodes extends e_shortcode
 					$oldconfigs['e-user'][2] 		= array('icon' =>defset('E_16_BANLIST'), 'title' =>ADLAN_112, 'url' => e_ADMIN. 'users.php?searchquery=&filter_options=user_ban__1', 'total' =>$banned);
 
 
-					// if(empty($pref['comments_disabled']) && varset($pref['comments_engine'],'e107') === 'e107')
-					// {
-					// 	$oldconfigs['e-comments'][0] 	= array('icon' => defset('E_16_COMMENT'), 'title' =>LAN_COMMENTS, 'url' => e_ADMIN_ABS. 'comment.php', 'total' =>$comments);
-					// }
+					if(empty($pref['comments_disabled']) && varset($pref['comments_engine'],'e107') === 'e107')
+					{
+						$oldconfigs['e-comments'][0] 	= array('icon' => defset('E_16_COMMENT'), 'title' =>LAN_COMMENTS, 'url' => e_ADMIN_ABS. 'comment.php', 'total' =>$comments);
+					}
 					if($flo = $sql->count('generic', '(*)', "WHERE gen_type='failed_login'"))
 					{
 						//$text .= "\n\t\t\t\t\t<div style='padding-bottom: 2px;'>".E_16_FAILEDLOGIN." <a href='".e_ADMIN_ABS."fla.php'>".ADLAN_146.": $flo</a></div>";	
