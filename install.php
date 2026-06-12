@@ -269,19 +269,111 @@ function getperms($arg, $ap = '')
 	return true;
 }
 
-$override = array();
-
-if (!isset($_POST['stage']))
+/**
+ * Inspect e107_config.php to classify the installation, reading both the v2.4
+ * return-array format and the legacy globals format.
+ *
+ *  - fresh:     no usable config yet (missing, empty, or the 0-byte seed)
+ *  - pending:   a provisioning token is present but no database is configured
+ *  - installed: real database credentials are present
+ *
+ * The database itself is never consulted, so an outage cannot change the verdict.
+ *
+ * @return array{mode:string,token:string|null}
+ */
+function install_config_state()
 {
-	$_POST['stage'] = 1;
+	$file = 'e107_config.php';
+	if(!is_file($file) || filesize($file) <= 1)
+	{
+		return array('mode' => 'fresh', 'token' => null);
+	}
+
+	$mySQLdefaultdb = null;
+	$E107_CONFIG = array();
+	$config = @include($file);
+
+	if(is_array($config) && isset($config['database']))
+	{
+		$db = isset($config['database']['db']) ? $config['database']['db'] : null;
+		$other = (isset($config['other']) && is_array($config['other'])) ? $config['other'] : array();
+	}
+	else
+	{
+		$db = $mySQLdefaultdb;
+		$other = is_array($E107_CONFIG) ? $E107_CONFIG : array();
+	}
+
+	$token = (isset($other['install_token']) && is_string($other['install_token'])) ? $other['install_token'] : null;
+
+	if(!empty($db))
+	{
+		return array('mode' => 'installed', 'token' => $token);
+	}
+	if($token !== null)
+	{
+		return array('mode' => 'pending', 'token' => $token);
+	}
+
+	return array('mode' => 'fresh', 'token' => null);
 }
 
-if (isset($_POST['previous_steps']))
+/**
+ * Store the signed resume blob in a hardened, short-lived cookie so the same
+ * browser can resume without re-pasting. Confidentiality of the cookie is
+ * defence in depth; it is never trusted without a valid signature.
+ *
+ * @param string $value signed blob
+ * @return void
+ */
+function install_set_state_cookie($value)
 {
-	$tmp = install_state_decode($_POST['previous_steps']);
-	$override = (isset($tmp['paths']['hash']) && is_string($tmp['paths']['hash'])) ? array('site_path'=>$tmp['paths']['hash']) : array();
+	$secure = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off');
+	$path = defined('e_HTTP') ? e_HTTP : '/';
+
+	// eShims::setcookie forwards the 7.3+ options array untouched on modern PHP
+	// and folds SameSite into the path on the PHP 5.6 floor, so the SameSite
+	// version branch lives in one place instead of being duplicated here.
+	eShims::setcookie('e107install_state', $value, array(
+		'expires'  => 0,
+		'path'     => $path,
+		'secure'   => $secure,
+		'httponly' => true,
+		'samesite' => 'Strict',
+	));
+}
+
+$installState = install_config_state();
+
+// Fail closed: a completed installation shuts the interactive installer out.
+// Reinstalling requires removing e107_config.php from the filesystem. The
+// unattended (?create_tables) entry is gated separately, in
+// create_tables_unattended.
+if($installState['mode'] === 'installed' && !isset($_GET['create_tables']))
+{
+	die_fatal_error("e107 is already installed. To reinstall, first remove <b>e107_config.php</b>.");
+}
+
+$GLOBALS['e_install_token'] = $installState['token'];
+
+// Same-browser convenience: when no signed state is posted (e.g. the admin
+// returned to the installer), fall back to the resume cookie. It is still only
+// trusted after signature verification, exactly like the posted field.
+if(!isset($_POST['previous_steps']) && isset($_COOKIE['e107install_state']))
+{
+	$_POST['previous_steps'] = $_COOKIE['e107install_state'];
+}
+
+$override = array();
+
+if(isset($_POST['previous_steps']) && $installState['token'] !== null)
+{
+	$tmp = install_state_verify($_POST['previous_steps'], $installState['token']);
+	if(is_array($tmp) && isset($tmp['paths']['hash']) && is_string($tmp['paths']['hash']) && preg_match('/^[a-f0-9]{10}$/', $tmp['paths']['hash']))
+	{
+		$override = array('site_path' => $tmp['paths']['hash']);
+	}
 	unset($tmp);
-	unset($tmpadminpass1);
 }
 
 $e107_paths = array();
@@ -362,6 +454,9 @@ class e_install
 	private   $session;
 	protected $pdo = false;
 	protected $debug = false;
+	private   $token = null;       // provisioning token / HMAC key for this request
+	private   $validState = true;  // was signature-verified wizard state presented?
+	private   $locked = false;     // does e107_config.php already hold a lock token?
 
 	//	public function __construct()
 	function __construct()
@@ -406,25 +501,40 @@ class e_install
 		}
 		global $e107;
 		$this->e107 = $e107;
-		if (isset($_POST['previous_steps']))
+
+		$this->token = isset($GLOBALS['e_install_token']) ? $GLOBALS['e_install_token'] : null;
+		$this->locked = ($this->token !== null);
+
+		$verified = null;
+		if(isset($_POST['previous_steps']) && $this->token !== null)
 		{
-			$this->previous_steps = install_state_decode($_POST['previous_steps']);
+			$verified = install_state_verify($_POST['previous_steps'], $this->token);
+		}
 
+		if($verified !== null)
+		{
+			// Trusted, signature-verified state.
 			// Save unfiltered admin password (#4004) - " are transformed into &#34;
-			$tmpadminpass2 = (isset($this->previous_steps['admin'])) ? $this->previous_steps['admin']['password'] : '';
+			$rawAdminPass = isset($verified['admin']['password']) ? $verified['admin']['password'] : null;
 
-			$this->previous_steps = $tp->filter($this->previous_steps);
+			$this->previous_steps = $tp->filter($verified);
 
-			// Restore unfiltered admin password
-			$this->previous_steps['admin']['password'] = $tmpadminpass2;
+			if($rawAdminPass !== null)
+			{
+				$this->previous_steps['admin']['password'] = $rawAdminPass;
+			}
 
-			unset($_POST['previous_steps']);
-			unset($tmpadminpass2);
+			$this->validState = true;
 		}
 		else
 		{
+			// Fresh installs legitimately carry no signed state (stage 1 -> 2). A
+			// locked install presenting no valid state is gated by renderPage().
 			$this->previous_steps = array();
+			$this->validState = !$this->locked;
 		}
+
+		unset($_POST['previous_steps']);
 		$this->get_lan_file();
 		$this->post_data = $tp->filter($_POST);
 
@@ -473,34 +583,51 @@ class e_install
 			$_POST['stage'] = (int) $_POST['back'];
 		}
 
-		switch ($_POST['stage'])
+		if($this->locked && !$this->validState)
 		{
-			case 1:
-				$this->stage_1();
-				break;
-			case 2:
-				$this->stage_2();
-				break;
-			case 3:
-				$this->stage_3();
-				break;
-			case 4:
-				$this->stage_4();
-				break;
-			case 5:
-				$this->stage_5();
-				break;
-			case 6:
-				$this->stage_6();
-				break;
-			case 7:
-				$this->stage_7();
-				break;
-			case 8:
-				$this->stage_8();
-				break;
-			default:
-				$this->raise_error("Install stage information from client makes no sense to me.");
+			// A lock exists but no validly-signed state was presented (lost
+			// session or tampered field): gate behind a paste-to-resume prompt
+			// instead of acting on untrusted input or restarting the wizard.
+			$this->stage_resume();
+		}
+		else
+		{
+			// From stage 2 onwards the installation is locked to a provisioning
+			// token; mint it on first advance, then reuse it every request.
+			if($_POST['stage'] >= 2)
+			{
+				$this->token = $this->ensureLock();
+			}
+
+			switch ($_POST['stage'])
+			{
+				case 1:
+					$this->stage_1();
+					break;
+				case 2:
+					$this->stage_2();
+					break;
+				case 3:
+					$this->stage_3();
+					break;
+				case 4:
+					$this->stage_4();
+					break;
+				case 5:
+					$this->stage_5();
+					break;
+				case 6:
+					$this->stage_6();
+					break;
+				case 7:
+					$this->stage_7();
+					break;
+				case 8:
+					$this->stage_8();
+					break;
+				default:
+					$this->raise_error("Install stage information from client makes no sense to me.");
+			}
 		}
 
 		if ($_SERVER['QUERY_STRING'] === "debug")
@@ -509,18 +636,247 @@ class e_install
 		}
 		else
 		{
-			$this->template->SetTag("debug_info", (!empty($this->debug_info) ? print_a($this->debug_info, TRUE) . "Backtrace:<br />" . print_a($this, TRUE) : ""));
+			// Never render the install object here: it holds the provisioning
+			// token (the HMAC signing key) and the submitted credentials. Show
+			// only the structured error info.
+			$this->template->SetTag("debug_info", (!empty($this->debug_info) ? print_a($this->debug_info,TRUE) : ""));
 		}
 
 		echo $this->template->ParseTemplate(template_data(), TEMPLATE_TYPE_DATA);
 	}
 
+	/**
+	 * Ensure the installation is locked to a provisioning token, minting one on
+	 * first advance and adopting any existing lock thereafter. The token is the
+	 * HMAC key that authenticates wizard state for the rest of the install.
+	 *
+	 * @return string the provisioning token
+	 */
+	private function ensureLock()
+	{
+		if($this->token !== null)
+		{
+			return $this->token; // already locked; never rotate mid-install
+		}
+
+		// Re-read in case another request minted the lock since the file-scope read.
+		$state = install_config_state();
+		if($state['token'] !== null)
+		{
+			$GLOBALS['e_install_token'] = $state['token'];
+			return $state['token'];
+		}
+
+		$token = install_state_generate_token();
+		if($token === false)
+		{
+			die_fatal_error("e107 could not generate a secure installation token. PHP needs a CSPRNG (random_bytes or OpenSSL).");
+		}
+
+		$this->write_config($this->buildPendingConfig($token, install_state_sign($this->strippedSteps(), $token)));
+		$GLOBALS['e_install_token'] = $token;
+		$this->locked = true;
+
+		return $token;
+	}
+
+	/**
+	 * Render the resume gate shown when a lock exists but no valid signed state
+	 * was presented. The admin pastes the resume blob (recoverable from
+	 * e107_config.php) to continue; the token itself is never shown.
+	 *
+	 * @return null
+	 */
+	private function stage_resume()
+	{
+		global $e_forms;
+		$this->stage = 1;
+
+		$this->template->SetTag("installation_heading", LANINS_001);
+		$this->template->SetTag("stage_pre", LANINS_002);
+		$this->template->SetTag("stage_num", '');
+		$this->template->SetTag("stage_title", LANINS_004);
+		$this->template->SetTag("percent", 0);
+		$this->template->SetTag("bartype", 'warning');
+
+		$requested = isset($_POST['stage']) ? (int) $_POST['stage'] : 2;
+		if($requested < 2)
+		{
+			$requested = 2;
+		}
+
+		$e_forms->start_form("resume", $_SERVER['PHP_SELF'].($_SERVER['QUERY_STRING'] === "debug" ? "?debug" : ""));
+		$e_forms->add_plain_html(
+			"<div class='alert alert-warning'>An installation is already in progress and is locked to this server.<br />"
+			."Paste your resume code below to continue. It is stored in <b>e107_config.php</b> as <b>install_state</b>.</div>"
+			."<div class='form-group'><textarea class='form-control' name='previous_steps' rows='4' style='width:100%;' required='required'></textarea></div>"
+		);
+		$e_forms->add_hidden_data("stage", $requested);
+		$this->add_button("start", LAN_CONTINUE);
+
+		$this->template->SetTag("stage_content", $e_forms->return_form());
+
+		return null;
+	}
+
+	/**
+	 * Wizard state minus the administrator login password. Used for the recovery
+	 * copies (cookie and on-disk e107_config.php) so the login password is never
+	 * persisted; it is re-collected if a recovery resume lands past that stage.
+	 *
+	 * @return array
+	 */
+	private function strippedSteps()
+	{
+		$steps = $this->previous_steps;
+		if(isset($steps['admin']['password']))
+		{
+			unset($steps['admin']['password']);
+		}
+
+		return $steps;
+	}
+
+	/**
+	 * Escape a value for safe interpolation inside a single-quoted PHP string in
+	 * a generated config file. Prevents a quote in a password or other field from
+	 * breaking out of the literal (let alone injecting PHP).
+	 *
+	 * @param mixed $value
+	 * @return string
+	 */
+	private function configString($value)
+	{
+		return str_replace(array('\\', "'"), array('\\\\', "\\'"), (string) $value);
+	}
+
+	/**
+	 * Build the install-pending e107_config.php: a lock holding the provisioning
+	 * token and the latest recovery blob, but no database credentials. class2.php
+	 * treats this as "not installed" and redirects back to the installer.
+	 *
+	 * @param string $token
+	 * @param string $signedBlob recovery copy of the signed wizard state
+	 * @return string
+	 */
+	public function buildPendingConfig($token, $signedBlob)
+	{
+		$tokenStr = $this->configString($token);
+		$blobStr  = $this->configString($signedBlob);
+
+		return "<?php
+/*
+ * e107 website system
+ *
+ * Installation in progress. This is a temporary lock written by the e107
+ * installer. Delete this file to abandon the installation and start over.
+ */
+
+\$E107_CONFIG = array(
+    'install_pending' => true,
+    'install_token'   => '{$tokenStr}',
+    'install_state'   => '{$blobStr}',
+);
+";
+	}
+
+	/**
+	 * Build the finished legacy-format e107_config.php. The site hash is resolved
+	 * by the caller (server-side, never from client state) and every interpolated
+	 * value is escaped, so generated wizard input can neither break the file nor
+	 * inject PHP.
+	 *
+	 * @param array  $steps    previous_steps
+	 * @param string $sitePath the already-resolved site hash, recomputed
+	 *                         server-side from the database name and prefix
+	 * @return string
+	 */
+	public function buildConfigFile($steps, $sitePath)
+	{
+		$server   = $this->configString($steps['mysql']['server']);
+		$user     = $this->configString($steps['mysql']['user']);
+		$password = $this->configString($steps['mysql']['password']);
+		$db       = $this->configString($steps['mysql']['db']);
+		$prefix   = $this->configString($steps['mysql']['prefix']);
+		$email    = $this->configString(isset($steps['admin']['email']) ? $steps['admin']['email'] : '');
+		$hash     = $this->configString($sitePath);
+
+		// Directory globals: take e107's directory map and strip the per-site hash
+		// so SYSTEM/MEDIA are re-derived multisite-aware by setDirs() at every
+		// bootstrap rather than frozen to the install-time hash. The strip is
+		// idempotent whether the map still holds the [hash] placeholder or the
+		// already-substituted path. Computed on a local copy so stage 8 state is
+		// untouched.
+		$dirs = $this->e107->e107_dirs;
+		$dirs['SYSTEM_DIRECTORY'] = str_replace('[hash]', $sitePath, $dirs['SYSTEM_DIRECTORY']);
+		$dirs['SYSTEM_DIRECTORY'] = str_replace('/'.$sitePath, '', $dirs['SYSTEM_DIRECTORY']);
+		$dirs['MEDIA_DIRECTORY']  = str_replace('/'.$sitePath, '', $dirs['MEDIA_DIRECTORY']);
+
+		$admin     = $this->configString($dirs['ADMIN_DIRECTORY']);
+		$files     = $this->configString($dirs['FILES_DIRECTORY']);
+		$images    = $this->configString($dirs['IMAGES_DIRECTORY']);
+		$themes    = $this->configString($dirs['THEMES_DIRECTORY']);
+		$plugins   = $this->configString($dirs['PLUGINS_DIRECTORY']);
+		$handlers  = $this->configString($dirs['HANDLERS_DIRECTORY']);
+		$languages = $this->configString($dirs['LANGUAGES_DIRECTORY']);
+		$help      = $this->configString($dirs['HELP_DIRECTORY']);
+		$media     = $this->configString($dirs['MEDIA_DIRECTORY']);
+		$system    = $this->configString($dirs['SYSTEM_DIRECTORY']);
+
+		return "<?php
+/*
+ * e107 website system
+ *
+ * Copyright (C) 2008-".date('Y')." e107 Inc (e107.org)
+ * Released under the terms and conditions of the
+ * GNU General Public License (http://www.gnu.org/licenses/gpl.txt)
+ *
+ * e107 configuration file
+ *
+ * This file has been generated by the installation script on ".date('r').".
+ */
+
+\$mySQLserver    = '{$server}';
+\$mySQLuser      = '{$user}';
+\$mySQLpassword  = '{$password}';
+\$mySQLdefaultdb = '{$db}';
+\$mySQLprefix    = '{$prefix}';
+\$mySQLcharset   = 'utf8';
+
+\$ADMIN_DIRECTORY     = '{$admin}';
+\$FILES_DIRECTORY     = '{$files}';
+\$IMAGES_DIRECTORY    = '{$images}';
+\$THEMES_DIRECTORY    = '{$themes}';
+\$PLUGINS_DIRECTORY   = '{$plugins}';
+\$HANDLERS_DIRECTORY  = '{$handlers}';
+\$LANGUAGES_DIRECTORY = '{$languages}';
+\$HELP_DIRECTORY      = '{$help}';
+\$MEDIA_DIRECTORY     = '{$media}';
+\$SYSTEM_DIRECTORY    = '{$system}';
+
+\$E107_CONFIG = ['site_path' => '{$hash}'];
+
+
+// -- Optional --
+// define('e_EMAIL_CRITICAL', '{$email}');  // email the admin (and share no details with the user) if a critical error occurs.
+// define('e_LOG_CRITICAL', true); // log critical errors but do not display them to user.
+// define('e_DEBUG', true); // Enable debug mode to allow displaying of errors
+// define('e_HTTP_STATIC', 'https://static.mydomain.com/');  // Use a static subdomain for js/css/images etc.
+// define('e_MOD_REWRITE_STATIC', true); // Rewrite static image urls.
+// define('e_GIT', 'path-to-git');  // Path to GIT for developers
+// define('X-FRAME-SAMEORIGIN', false); // Option to override X-Frame-Options
+
+";
+	}
+
 	function raise_error($details)
 	{
-		$this->debug_info[] = array(
-			'info' => array(
-				'details' => $details,
-				'backtrace' => debug_backtrace()
+		$this->debug_info[] = array (
+		'info' => array (
+			'details' => $details,
+			// IGNORE_ARGS so a captured frame cannot carry a password or the
+			// provisioning token into the rendered error output.
+			'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)
 			)
 		);
 	}
@@ -965,8 +1321,9 @@ class e_install
 			}
 			$perms_notes = LANINS_106;
 		}
-		elseif (filesize('e107_config.php') > 1)
-		{	// Must start from an empty e107_config.php
+		elseif (install_config_state()['mode'] === 'installed')
+		{	// Refuse to install over an already-configured site. The pending lock
+			// (token only) is expected and allowed; a completed config is not.
 			$perms_pass = FALSE;
 			$perms_errors = LANINS_121;
 			$perms_notes = "<span class='glyphicon glyphicon-remove'></span> " . LANINS_122;
@@ -1475,103 +1832,9 @@ class e_install
 			return $this->stage_6();
 		}
 
-		// Render the directory-override section from the canonical list on e107.
-		// Adding a name to e107::overridableDirs() makes it appear in both
-		// templates below and in the legacy reader in class2.php automatically.
-		//
-		// DOWNLOADS, UPLOADS, and LOGS are derived from MEDIA/SYSTEM in
-		// e107::defaultDirs() but setDirs() does not re-apply site_path to
-		// them if they are explicitly set in e107_config.php. Emitting bare
-		// defaults uncommented would break multisite installs, so these three
-		// stay commented while their 13 siblings get written with their
-		// resolved values. defaultDirs() supplies the runtime values for
-		// commented entries.
-		$overridable = $this->e107->overridableDirs();
-		$mustComment = array('DOWNLOADS_DIRECTORY', 'UPLOADS_DIRECTORY', 'LOGS_DIRECTORY');
-		$legacyPathLines = '';
-		$v24PathLines = '';
-		foreach($overridable as $name => $default)
-		{
-			$prefix = in_array($name, $mustComment, true) ? '// ' : '';
-			$short = strtolower(str_replace('_DIRECTORY', '', $name));
-
-			// Emit bare defaults so MEDIA/SYSTEM/CACHE keep their multisite
-			// site_path re-derivation through setDirs() at every bootstrap,
-			// rather than baking in the install-time hash.
-			$legacyPathLines .= $prefix . str_pad('$' . $name, 20) . " = '" . $default . "';\n";
-			$v24PathLines    .= '        ' . $prefix . str_pad("'" . $short . "'", 11) . " => '" . $default . "',\n";
-		}
-
-		$config_file = "<?php
-/*
- * e107 website system
- *
- * Copyright (C) 2008-" . date('Y') . " e107 Inc (e107.org)
- * Released under the terms and conditions of the
- * GNU General Public License (http://www.gnu.org/licenses/gpl.txt)
- *
- * e107 configuration file (v2.4+ array format)
- *
- * This file has been generated by the installation script on " . date('r') . ".
- */
-
-\$mySQLserver    = '{$this->previous_steps['mysql']['server']}';
-\$mySQLuser      = '{$this->previous_steps['mysql']['user']}';
-\$mySQLpassword  = '{$this->previous_steps['mysql']['password']}';
-\$mySQLdefaultdb = '{$this->previous_steps['mysql']['db']}';
-\$mySQLprefix    = '{$this->previous_steps['mysql']['prefix']}';
-\$mySQLcharset   = 'utf8mb4';
-
-// -- Optional directory overrides --
-// Uncomment and edit any line below to point e107 at a different directory layout.
-{$legacyPathLines}
-\$E107_CONFIG = ['site_path' => '{$this->previous_steps['paths']['hash']}'];
-
-
-// -- Optional --
-// const e_EMAIL_CRITICAL    = '{$this->previous_steps['admin']['email']}'; // email the admin (and share no details with the user) if a critical error occurs.
-// const e_LOG_CRITICAL      = true;  // log critical errors but do not display them to user. (similar to above, but no email is sent - instead error goes into a log file)
-// const e_DEBUG             = true;  // Enable debug mode to allow displaying of errors
-// const e_HTTP_STATIC       = 'https://static.mydomain.com/'; // Use a static subdomain for js/css/images etc.
-// const e_MOD_REWRITE_STATIC = true; // Rewrite static image urls.
-// const e_GIT               = 'path-to-git'; // Path to GIT for developers
-// const X_FRAME_SAMEORIGIN  = false; // Option to override X-Frame-Options
-// const e_DEBUG_CANONICAL   = true;  // display canonical urls on frontend
-// const e_DEBUG_JQUERY      = 2;     // set jquery version without using library
-// const e_DEBUG_JS_FOOTER   = true;  // render jquery in footer
-
-
-return [
-    'database' => [
-        'server'   => '{$this->previous_steps['mysql']['server']}',
-        'user'     => '{$this->previous_steps['mysql']['user']}',
-        'password' => '{$this->previous_steps['mysql']['password']}',
-        'db'       => '{$this->previous_steps['mysql']['db']}',
-        'prefix'   => '{$this->previous_steps['mysql']['prefix']}',
-        'charset'  => 'utf8mb4',
-    ],
-    // Uncomment any line below to override the default directory layout.
-    'paths' => [
-{$v24PathLines}    ],
-    'other' => [
-        'site_path'  => '{$this->previous_steps['paths']['hash']}',
-    ],
-];
-";
-
-
-		$config_result = $this->write_config($config_file);
-
-		if ($config_result)
-		{
-			// $page = $config_result."<br />";
-			installLog::add('Error writing config file: ' . $config_result);
-		}
-		else
-		{
-			installLog::add('Config file written successfully');
-		}
-
+		// The finished e107_config.php is written at the end of stage 8, after the
+		// database is provisioned. Until then e107_config.php stays in its pending
+		// lock state, so a half-finished install never looks installed.
 
 		// Data is okay - Continue.
 
@@ -1608,7 +1871,14 @@ return [
 	{
 		global $e_forms;
 
-
+		// A recovery resume (cookie or pasted blob) never carries the admin login
+		// password, since it is kept out of the recoverable copies. Re-collect it
+		// before it is used to create the administrator account.
+		if(!empty($this->previous_steps['admin']['user']) && !vartrue($this->previous_steps['admin']['password']))
+		{
+			$this->required['password'] = LANINS_026;
+			return $this->stage_5();
+		}
 
 		//$system_dir = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['SYSTEM_DIRECTORY']);
 		//$media_dir = str_replace("/".$this->e107->site_path,"",$this->e107->e107_dirs['MEDIA_DIRECTORY']);
@@ -1661,8 +1931,28 @@ return [
 			{
 				$page .= "<br />" . $htaccessError;
 			}
-			$this->add_button('submit', LAN_CONTINUE);
-		}
+			else
+			{
+				$alertType = 'success';
+				installLog::add('Tables created successfully');
+				$this->import_configuration();
+
+				// Write the finished config last: its database credentials are the
+				// "installed" marker the top-of-file guard keys on. The site hash
+				// is recomputed server-side, never read from the client-supplied
+				// wizard state.
+				$sitePath = $this->e107->makeSiteHash($this->previous_steps['mysql']['db'], $this->previous_steps['mysql']['prefix']);
+				$this->write_config($this->buildConfigFile($this->previous_steps, $sitePath));
+
+				$page = nl2br(LANINS_125)."<br />";
+				$page .= (is_writable('e107_config.php')) ? "<br />".str_replace("e107_config.php","<b>e107_config.php</b>",LANINS_126) : "";
+				
+				if($htaccessError)
+				{
+					$page .= "<br />".$htaccessError;
+				}	
+				$this->add_button('submit', LAN_CONTINUE);
+			}
 
 		$this->finish_form();
 	
@@ -2237,7 +2527,28 @@ return [
 		global $e_forms;
 		if ($this->previous_steps)
 		{
-			$e_forms->add_hidden_data("previous_steps", install_state_encode($this->previous_steps));
+			if($this->token !== null)
+			{
+				// Hand the full state back signed; the server trusts only what it
+				// can verify with the lock token next request.
+				$e_forms->add_hidden_data("previous_steps", install_state_sign($this->previous_steps, $this->token));
+
+				// Recovery copies (cookie + on-disk lock) omit the login password
+				// and are refreshed only while the config is still pending, so the
+				// finished config written at stage 8 is never clobbered.
+				$recovery = install_state_sign($this->strippedSteps(), $this->token);
+				install_set_state_cookie($recovery);
+
+				if($this->stage <= 6)
+				{
+					$this->write_config($this->buildPendingConfig($this->token, $recovery));
+				}
+			}
+			else
+			{
+				// Stage 1 only: no lock yet and no state worth signing.
+				$e_forms->add_hidden_data("previous_steps", install_state_encode($this->previous_steps));
+			}
 		}
 		$e_forms->add_hidden_data("stage", ($force_stage ? $force_stage : ($this->stage + 1)));
 
@@ -2477,24 +2788,29 @@ function create_tables_unattended()
 	} else {
 		return false;
 	}
-
-	if(is_array($config) && !empty($config['database'])) // New e107_config.php format. v2.4+
-	{
-		$dbInfo = $config['database'];
-		$mySQLserver    = $dbInfo['server']   ?? null;
-		$mySQLuser      = $dbInfo['user']     ?? null;
-		$mySQLpassword  = $dbInfo['password'] ?? null;
-		$mySQLdefaultdb = $dbInfo['db']       ?? null;
-		$mySQLprefix    = $dbInfo['prefix']   ?? null;
-	}
-
+	
 	//If mysql info not set, config file is not created properly
 	if(!isset($mySQLuser) || !isset($mySQLpassword) || !isset($mySQLdefaultdb) || !isset($mySQLprefix))
 	{
 		return false;
 	}
 
-	// If specified username and password does not match the ones in config, exit
+	// Refuse to re-provision a database that already holds an e107 install (a
+	// replayed unattended run, or a pre-existing/upgraded site). This precedes
+	// and returns identically to the credential check below, so it is not a
+	// credential oracle. The probe uses a dedicated db instance so its table
+	// list never pollutes the connection the install below reuses.
+	$probe = e107::getDb('install_provision_check');
+	if($probe->connect($mySQLserver, $mySQLuser, $mySQLpassword)
+		&& $probe->database($mySQLdefaultdb, $mySQLprefix)
+		&& !empty($probe->tables()))
+	{
+		return false;
+	}
+
+	// If specified username and password does not match the ones in config, exit.
+	// hash_equals keeps the comparison constant-time (no character-by-character
+	// timing leak of the stored credentials).
 	if(!hash_equals((string) $mySQLuser, (string) $_GET['username'])
 		|| !hash_equals((string) $mySQLpassword, (string) $_GET['password']))
 	{
@@ -2526,6 +2842,13 @@ function create_tables_unattended()
 		installLog::add('Unattended install failed: '.$result['errors'], 'error');
 		return false;
 	}
+
+	//$einstall->e107 = &$e107;
+
+	//FIXME - does not appear to work for import_configuration. ie. tables are blank except for user table.
+
+	$einstall->create_tables();
+	$einstall->import_configuration();
 
 	return true;
 }
