@@ -1127,11 +1127,23 @@ class db_verify
 			foreach($file as $table => $val)
 			{
 
-				$id = $this->getId($this->sqlFileTables[$j]['tables'], $table);
+				// $table is an attacker-controllable POST array key used in identifier position; reject non-identifiers.
+				if(!preg_match('/^[A-Za-z0-9_]+$/', (string) $table))
+				{
+					continue;
+				}
+
+				$id = $this->getId($this->sqlFileTables[$j]['tables'],$table);
 				$toFix = count($val);
 
 				foreach($val as $field => $fixes)
 				{
+					// $field is also a POST array key used in identifier position; reject non-identifiers.
+					if(!preg_match('/^[A-Za-z0-9_]+$/', (string) $field))
+					{
+						continue;
+					}
+
 					foreach($fixes as $mode)
 					{
 

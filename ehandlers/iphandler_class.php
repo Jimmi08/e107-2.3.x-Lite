@@ -928,8 +928,18 @@ class eIPHandler
 				{
 					$vals = array_unique($vals);			// Could get identical values from domain name check and email check
 
-					$match = "`banlist_ip`='".implode("' OR `banlist_ip`='", $vals)."'";
+					if($this->debug)
+					{
+						print_a($vals);
+					}
 
+
+					$valsEsc = array();
+					foreach($vals as $valItem)
+					{
+						$valsEsc[] = e107::getDb()->escape($valItem);
+					}
+					$match = "`banlist_ip`='".implode("' OR `banlist_ip`='", $valsEsc)."'";
 					$this->checkBan($match);
 				}
 			}
@@ -1713,7 +1723,7 @@ class banlistManager
 
 		foreach ($ipAction as $ipKey => $ipInfo)
 		{
-			if ($ourDb->select('banlist', '*', "`banlist_ip`='".$ipKey."'") === 1)
+			if ($ourDb->select('banlist', '*', "`banlist_ip`='".$ourDb->escape($ipKey)."'") === 1)
 			{
 				if ($row = $ourDb->fetch())
 				{
