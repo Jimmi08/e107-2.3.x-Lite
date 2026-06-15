@@ -1888,11 +1888,6 @@ class e_install
 		return null;
 	}
 
-	/**
-	 *	Stage 8 - actually create database and set up the site
-	 *
-	 *	@return null
-	 */
 	private function stage_8()
 	{
 		global $e_forms;
@@ -1967,41 +1962,9 @@ class e_install
 			}
 			$this->add_button('submit', LAN_CONTINUE);
 		}
-			$alertType = 'success';
-			installLog::add('Tables created successfully');
-			$this->import_configuration();
-			$page = nl2br(LANINS_125) . "<br />";
-			$page .= (is_writable('e107_config.php')) ? "<br />" . str_replace("e107_config.php", "<b>e107_config.php</b>", LANINS_126) : "";
-
-			if ($htaccessError)
-			{
-				$page .= "<br />" . $htaccessError;
-			}
-			else
-			{
-				$alertType = 'success';
-				installLog::add('Tables created successfully');
-				$this->import_configuration();
-
-				// Write the finished config last: its database credentials are the
-				// "installed" marker the top-of-file guard keys on. The site hash
-				// is recomputed server-side, never read from the client-supplied
-				// wizard state.
-				$sitePath = $this->e107->makeSiteHash($this->previous_steps['mysql']['db'], $this->previous_steps['mysql']['prefix']);
-				$this->write_config($this->buildConfigFile($this->previous_steps, $sitePath));
-
-				$page = nl2br(LANINS_125)."<br />";
-				$page .= (is_writable('e107_config.php')) ? "<br />".str_replace("e107_config.php","<b>e107_config.php</b>",LANINS_126) : "";
-				
-				if($htaccessError)
-				{
-					$page .= "<br />".$htaccessError;
-				}	
-				$this->add_button('submit', LAN_CONTINUE);
-			}
 
 		$this->finish_form();
-	
+
 		$this->template->SetTag("stage_content", "<div class='alert alert-block alert-{$alertType}'>" . $page . "</div>" . $e_forms->return_form());
 		installLog::add('Stage 8 completed');
 
