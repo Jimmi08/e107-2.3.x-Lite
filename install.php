@@ -63,11 +63,17 @@ class installLog
 
 	const logFile = "e107Install.log";
 
-	// The install log lives under e107_system/, whose shipped .htaccess denies
-	// web access. The per-site logs directory (e107_system/<hash>/logs) needs the
-	// site hash, which is not known this early - it derives from the database name
-	// and prefix collected mid-wizard - so the installer logs to the system root.
-	const logDir = "e107_system";
+	// LITE MODIFICATION: upstream uses "e107_system"; Lite renames the system
+	// directory to "esystem". Cherry-picks from upstream reset this constant to
+	// the upstream name, which silently disables install logging (is_writable()
+	// on a non-existent dir returns false). Revert if Lite ever adopts upstream
+	// directory names.
+	//
+	// The install log lives under esystem/, whose shipped .htaccess denies web
+	// access. The per-site logs directory (esystem/<hash>/logs) needs the site
+	// hash, which is not known this early - it derives from the database name and
+	// prefix collected mid-wizard - so the installer logs to the system root.
+	const logDir = "esystem";
 
 
 	static function exceptionHandler(Exception $exception)
@@ -1941,6 +1947,26 @@ class e_install
 		}
 		else
 		{
+			$alertType = 'success';
+			installLog::add('Tables created successfully');
+			$this->import_configuration();
+
+			// Write the finished config last: its database credentials are the
+			// "installed" marker the top-of-file guard keys on. The site hash
+			// is recomputed server-side, never read from the client-supplied
+			// wizard state.
+			$sitePath = $this->e107->makeSiteHash($this->previous_steps['mysql']['db'], $this->previous_steps['mysql']['prefix']);
+			$this->write_config($this->buildConfigFile($this->previous_steps, $sitePath));
+
+			$page = nl2br(LANINS_125)."<br />";
+			$page .= (is_writable('e107_config.php')) ? "<br />".str_replace("e107_config.php","<b>e107_config.php</b>",LANINS_126) : "";
+
+			if($htaccessError)
+			{
+				$page .= "<br />".$htaccessError;
+			}
+			$this->add_button('submit', LAN_CONTINUE);
+		}
 			$alertType = 'success';
 			installLog::add('Tables created successfully');
 			$this->import_configuration();
