@@ -56,6 +56,14 @@ if(isset($_E107['cli'], $_SERVER["HTTP_USER_AGENT"]) && !isset($_E107['debug']))
 	exit();
 }
 
+// if (PHP_MAJOR_VERSION < 8) LITE MODIFICATION, support PHP 7.4
+// {
+// 	echo "Configuration Error. Check error log for details.";
+// 	error_log('PHP 8 or higher is required. Current version: ' . PHP_VERSION);
+// 	exit();
+// }
+
+
 if(function_exists('utf8_encode') === false)
 {
 	echo "e107 requires the PHP <a href='http://php.net/manual/en/dom.setup.php'>XML</a> package. Please install it to use e107.  ";
@@ -161,14 +169,15 @@ if(empty($PLUGINS_DIRECTORY))
 
 // Positively detect a completed installation: real database credentials must be
 // present (v2.4 'database.db' or the legacy $mySQLdefaultdb). Anything else - a
-// missing/empty/0-byte file, or an install-pending lock - is not installed, so
-// redirect to the installer.
+// missing/empty/0-byte file, or an install-pending lock holding only a
+// provisioning token - is not installed, so redirect to the installer. (An
+// include() of a 0-byte config returns int(1), which the old emptiness test let
+// slip through.)
 $e107_installed = !empty($mySQLdefaultdb) || (is_array($config) && !empty($config['database']['db']));
 $e107_install_pending = (is_array($config) && !empty($config['other']['install_pending'])) || !empty($E107_CONFIG['install_pending']);
 
 if ($e107_install_pending || !$e107_installed)
 {
-	// e107_config.php is empty/invalid, or holds a not-yet-finished install lock.
 	header('Location: install.php');
 	exit();
 }
@@ -201,7 +210,7 @@ if(empty($config['paths'])) // old e107_config.php format.
 	        $e107_paths[$name] = $$name;
 	    }
 	}
-unset($name);
+	unset($name);  //LITE MODIFICATION too general variable name, later conflict
 	$legacy_sql_info = compact('mySQLserver', 'mySQLuser', 'mySQLpassword', 'mySQLdefaultdb', 'mySQLprefix');
 	if(isset($mySQLport))
 	{
@@ -482,53 +491,24 @@ if(!empty($pref['redirectsiteurl']) && !empty($pref['siteurl'])) {
 			exit();
 		}
 	}
-    elseif(deftrue('e_DOMAIN'))
+	elseif (deftrue('e_DOMAIN'))
 	{
-		// Find domain and port from user and from pref
-		list($urlbase,$urlport) = explode(':',$_SERVER['HTTP_HOST'].':');
-		if(!$urlport)
-		{
-			$urlport = (int) $_SERVER['SERVER_PORT'];
-		}
-		if(!$urlport)
-		{
-			$urlport = 80;
-		}
-		$aPrefURL = explode('/',$pref['siteurl'],4);
-		if (count($aPrefURL) > 2) // we can do this -- there's at least http[s]://dom.ain/whatever
-		{
-			$PrefRoot = $aPrefURL[2];
-			list($PrefSiteBase,$PrefSitePort) = explode(':',$PrefRoot.':');
-			if (!$PrefSitePort)
-			{
-				$PrefSitePort = ( $aPrefURL[0] === 'https:' ) ? 443 : 80;	// no port so set port based on 'scheme'
-			}
+		$location = e107::getRedirect()->host($_SERVER, $pref['siteurl'], ADMINDIR);
 
-			// Redirect only if
-			// -- ports do not match (http <==> https)
-			// -- base domain does not match (case-insensitive)
-			// -- NOT admin area
-			if (($urlport !== $PrefSitePort || stripos($PrefSiteBase, $urlbase) === false) && strpos(e_REQUEST_SELF, ADMINDIR) === false)
+		if ($location)
+		{
+			if (defined('e_DEBUG') && e_DEBUG === true)
 			{
-				$aeSELF = explode('/', e_REQUEST_SELF, 4);
-				$aeSELF[0] = $aPrefURL[0];	// Swap in correct type of query (http, https)
-				$aeSELF[1] = '';						// Defensive code: ensure http:// not http:/<garbage>/
-				$aeSELF[2] = $aPrefURL[2];  // Swap in correct domain and possibly port
-				$location = implode('/',$aeSELF).($_SERVER['QUERY_STRING'] ? '?'.$_SERVER['QUERY_STRING'] : '');
-				$location = filter_var($location, FILTER_SANITIZE_URL);
-			if(defined('e_DEBUG') && e_DEBUG === true)
-			{
-				echo "DEBUG INFO: site-redirect preference enabled.<br />Redirecting to: <a href='".$location."'>".$location. '</a>';
-                echo '<br />e_DOMAIN: ' .e_DOMAIN;
-				echo '<br />e_SUBDOMAIN: ' .e_SUBDOMAIN;
+				echo "DEBUG INFO: site-redirect preference enabled.<br />Redirecting to: <a href='" . $location . "'>" . $location . "</a>";
+				echo '<br />e_DOMAIN: ' . e_DOMAIN;
+				echo '<br />e_SUBDOMAIN: ' . e_SUBDOMAIN;
 			}
 			else
 			{
-				e107::getRedirect()->go($location,true,301);
+				e107::getRedirect()->go($location, true, 301); // Issue 301 redirect
 			}
 
-				exit();
-			}
+			exit();
 		}
 	}
 }
@@ -541,55 +521,24 @@ if(!empty($pref['redirectsiteurl']) && !empty($pref['siteurl'])) {
 // - Language detection (because of session.cookie_domain)
 // to avoid multi-language 'access-denied' issues.
 //session_start(); see e107::getSession() above
-if(!isset($_E107['no_session']) && !isset($_E107['no_lan']))
+if (!isset($_E107['no_session']) && !isset($_E107['no_lan']))
 {
 	$dbg->logTime('Load Session Handler');
 	e107::getSession(); //init core _SESSION - actually here for reference only, it's done by language handler set() method
 
 	$dbg->logTime('Set User Language Session');
 	e107::getLanguage()->set();  // set e_LANGUAGE, USERLAN, Language Session / Cookies etc. requires $pref;
-
-	if($id = e107::getSession()->get('emulate'))
-	{
-		if(!empty($_POST['stopEmulation']))
-		{
-			e107::getSession()->clear('emulate');
-			e107::getMessage()->addSuccess("User access emulation mode has been stopped.");
-		}
-		else
-		{
-			$emulatedUser = e107::user($id);
-
-			$msg = "You are currently emulating the userclass and admin permissions of <b>".$emulatedUser['user_name']."</b>";
-			$msg .= "<br />This is a temporary emulation mode and will be cleared when you log out.";
-			$msg .= "<pre>userclasses: ".$emulatedUser['user_class']."\nadminperms: ".$emulatedUser['user_perms']."</pre>";
-			e107::getMessage()->setTitle('User Access Emulation Mode', E_MESSAGE_WARNING)->addWarning($msg);
-
-			$text = "<form action='".e_REQUEST_URI."' method='post'>\n";
-			$text .= "<input class='btn btn-dark' type='submit' name='stopEmulation' value='Stop Emulating' />\n";
-			$text .= "</form>\n";
-
-			e107::getMessage()->addWarning($text);
-
-			define('USERCLASS_LIST', $emulatedUser['user_class']);
-			define('ADMINPERMS', $emulatedUser['user_perms']);
-			// define('USERID', $emulatedUser['user_id']); Don't emulate user id. It will mess with logs.
-			define('USERNAME', $emulatedUser['user_name']);
-		}
-	}
 }
 else
 {
 	define('e_LANGUAGE', 'English');
 }
 
-if(!empty($pref['multilanguage']) && (e_LANGUAGE !== $pref['sitelanguage']))
+if (!empty($pref['multilanguage']) && (e_LANGUAGE !== $pref['sitelanguage']))
 {
 	$sql->mySQLlanguage  = e_LANGUAGE;
 	$sql2->mySQLlanguage = e_LANGUAGE;
 }
-
-
 
 
 // v1 Custom language File Path.
@@ -625,12 +574,14 @@ if(!isset($_E107['no_lan']))
 
 	$dbg->logTime('Include Global Plugin Language Files');
 
-	if(isset($pref['lan_global_list']))
+	if (isset($pref['lan_global_list']))
 	{
-		foreach($pref['lan_global_list'] as $path)
+		foreach ($pref['lan_global_list'] as $path)
 		{
-			// ONE RULE FOR GLOBAL LANS - ALWAYS FLAT, fix translations, don't do exceptions
-			e107::plugLan($path, 'global', true);
+			if (e107::plugLan($path, 'global', true) === false)
+			{
+				e107::plugLan($path, 'global');
+			}
 		}
 	}
 }
@@ -717,14 +668,7 @@ define('SITETAG', $tp->toHTML($pref['sitetag'], false, 'emotes_off,defs'));
 define('SITEADMIN', $pref['siteadmin']);
 define('SITEADMINEMAIL', $pref['siteadminemail']);
 
-// LITE MODIFICATION: replace YYYY with the current year in the SITEDISCLAIMER
-// constant. Upstream only does this substitution in the siteinfo shortcode, so
-// the bare constant (used e.g. by rss_menu) renders a literal "YYYY". Reported
-// upstream as e107inc/e107#5714 — drop the str_replace line and align back to
-// upstream once that is fixed.
-$sitedisclaimer = $tp->toHTML($pref['sitedisclaimer'], '', 'emotes_off,defs');
-$sitedisclaimer = str_replace("YYYY", date('Y'), $sitedisclaimer);
-define('SITEDISCLAIMER', $sitedisclaimer);
+define('SITEDISCLAIMER', str_replace('YYYY', date('Y'), $tp->toHTML($pref['sitedisclaimer'], '', 'emotes_off,defs')));
 
 define('SITECONTACTINFO', (!empty($pref['sitecontactinfo']) ? $tp->toHTML($pref['sitecontactinfo'], true, 'emotes_off,defs') : ''));
 define('SITEEMAIL', vartrue($pref['replyto_email'],$pref['siteadminemail']));
@@ -789,16 +733,6 @@ $dbg->logTime('Load Plugin Modules');
 $js_body_onload = array();			// Initialise this array in case a module wants to add to it
 
 // Load e_modules after all the constants, but before the themes, so they can be put to use.
-// LITE MODIFICATION: plugin e_module include is placed BEFORE the
-// e_SIGNUP / e_LOGIN defines below (upstream includes e_module AFTER
-// them, at the equivalent of class2.php:749). Reason: this lets a
-// plugin's e_module.php redefine e_SIGNUP / e_LOGIN with custom
-// login/registration URLs — upstream defines e_SIGNUP unconditionally
-// before e_module runs, so upstream cannot support that override.
-// Do NOT move this back after the defines on upstream sync.
-// Revert condition: upstream moves its e_module include before the
-// e_SIGNUP/e_LOGIN defines (i.e. adopts this ordering).
-
 if(!isset($_E107['no_module']))
 {
 	if(isset($pref['e_module_list']) && $pref['e_module_list'])
@@ -814,19 +748,11 @@ if(!isset($_E107['no_module']))
 	}
 }
 
-//login/signup callback if it is not set in e_module
-if (!defined('e_SIGNUP'))
-{
-	define('e_SIGNUP', SITEURL . (file_exists(e_BASE . 'customsignup.php') ? 'customsignup.php' : 'signup.php'));
-}
-
-if (!defined('e_LOGIN'))
-{
-	define('e_LOGIN', SITEURL . (file_exists(e_BASE . 'customlogin.php') ? 'customlogin.php' : 'login.php'));
-}
+//
+// P: THEME LOADING
+//
 
 
-//P: THEME LOADING
 
 if(!defined('USERTHEME') && !isset($_E107['no_theme']))
 {
@@ -1213,6 +1139,13 @@ else
 	define('e_REFERER_SELF', false);
 }
 
+if (deftrue('USER') && !e107::isCli())
+{
+	if (check_class(varset($pref['user_audit_class']))) // Need to note in user audit trail
+	{
+		e107::getLog()->user_audit(USER_AUDIT_NAVIGATION, e_REQUEST_URI, USERID, USERNAME);
+	}
+}
 
 /**
  * @deprecated Use e107::getRedirect()->go($url) instead.
@@ -1705,7 +1638,7 @@ function init_session()
 			define('CORRUPT_COOKIE', true);
 		}
 
-		define('USERLV', time());
+		define('USERLV', time());  //LITE MODIFICATION avoid fatal error
 	}
 	else
 	{
@@ -1724,10 +1657,10 @@ function init_session()
 		define('USERSIGNATURE', $user->get('user_signature'));
 
 
-		// if(ADMIN && empty($_E107['no_online']) && empty($_E107['no_forceuserupdate'])) // XXX - why for admins only?
-		// {
-		// 	e107::getRedirect()->setPreviousUrl();
-		// }
+		if(ADMIN && empty($_E107['no_online']) && empty($_E107['no_forceuserupdate'])) // XXX - why for admins only?
+		{
+			e107::getRedirect()->setPreviousUrl();
+		}
 
 		define('USERLV', $user->get('user_lastvisit'));
 
@@ -1847,7 +1780,7 @@ function cookie($name, $value, $expire=0, $path = e_HTTP, $domain = '', $secure 
 
 	if(!empty($_E107['cli']))
 	{
-		return null;
+		return;
 	}
 /*
 	if(!e_SUBDOMAIN || (defined('MULTILANG_SUBDOMAIN') && MULTILANG_SUBDOMAIN === true))
@@ -2146,7 +2079,7 @@ class error_handler
 	 * @param $file
 	 * @param $line
 	 * @param $context (deprecated since PHP 7.2.0)
-	 * @return bool
+	 * @return bool|void
 	 */
 	function handle_error($type, $message, $file, $line, $context = null) {
 		$startup_error = (!defined('E107_DEBUG_LEVEL')); // Error before debug system initialized
@@ -2194,7 +2127,7 @@ class error_handler
 			break;
 		}
 
-		return null;
+		return;
 	}
 
 
@@ -2437,7 +2370,7 @@ class e_http_header
 				{
 				    date_default_timezone_set('UTC');
 				}
-				$time = time()+ (integer) e107::getPref('site_page_expires');
+				$time = time() + (int) e107::getPref('site_page_expires');
 				$this->setHeader('Expires: '.gmdate("D, d M Y H:i:s", $time).' GMT', true);
 			}
 		}

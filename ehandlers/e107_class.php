@@ -200,6 +200,11 @@ class e107
 		'e_bbcode'                       => '{e_HANDLER}bbcode_handler.php',
 		'e_bb_base'                      => '{e_HANDLER}bbcode_handler.php',
 		'e_customfields'                 => '{e_HANDLER}e_customfields_class.php',
+		'e_db_expr'                      => '{e_HANDLER}e_db_query_class.php',
+		'e_db_filter'                    => '{e_HANDLER}e_db_filter_class.php',
+		'e_db_platform'                  => '{e_HANDLER}e_db_platform_class.php',
+		'e_db_platform_mysql'            => '{e_HANDLER}e_db_platform_class.php',
+		'e_db_query'                     => '{e_HANDLER}e_db_query_class.php',
 		'e_emote'                        => '{e_HANDLER}e_emote_class.php',
 		'e_file'                         => '{e_HANDLER}file_class.php',
 		'e_file_inspector_json_phar'     => '{e_HANDLER}e_file_inspector_json_phar.php',
@@ -797,7 +802,6 @@ class e107
 			'LOGS_DIRECTORY'      => 'esystem/logs/',
 			'CORE_DIRECTORY'      => 'ecore/',
 			'WEB_DIRECTORY'       => 'eweb/',
-
 		);
 	}
 
@@ -1639,7 +1643,7 @@ class e107
 	 * // object of plugin_myplugin_my_shortcodes class -> myplugin/shortcodes/batch/my_shortcodes.php
 	 * e107::getScObject('my', 'myplugin');
 	 *
-	 * // news override - plugin_myplugin_news_shortcodes extends news_shortcodes -> myplugin/shortcodes/batch/news_shortcodes.php
+	 * // news forced override - plugin_myplugin_plugin_myplugin_news_shortcodes extends news_shortcodes -> myplugin/shortcodes/batch/plugin_myplugin_news_shortcodes.php
 	 * e107::getScObject('news', 'myplugin', true);
 	 *
 	 * // news override - plugin_myplugin_mynews_shortcodes extends news_shortcodes -> myplugin/shortcodes/batch/mynews_shortcodes.php
@@ -2955,7 +2959,7 @@ class e107
 	 * @param string $pluginName e.g. faq, page
 	 * @param string $addonName eg. e_cron, e_url, e_module
 	 * @param mixed $className [optional] true - use default name, false - no object is returned (include only), any string will be used as class name
-	 * @return object
+	 * @return object|null
 	 */
 	public static function getAddon($pluginName, $addonName, $className = true)
 	{
@@ -3260,8 +3264,8 @@ class e107
 			return $temp;
 		}
 
-		$ADMIN_ICONS_TEMPLATE = self::getCoreTemplate('admin_icons', null, true);
- 
+		$ADMIN_ICONS_TEMPLATE = self::getCoreTemplate('admin_icons', null, false);
+
 		if(self::getPref('admincss') === 'css/kadmin.css')
 		{
 			$ADMIN_ICONS_TEMPLATE['ADMIN_INSTALLPLUGIN_ICON']   = "<i class='fa fa-cog fa-2x fa-fw'></i>";
@@ -3337,6 +3341,280 @@ class e107
         }
 
 		return $ret;
+	}
+
+	/**
+	 * Scan a template file for LAN_* constant references and pre-define any
+	 * that are missing, so a subsequent require/include of that file cannot
+	 * fatal on PHP 8 with "Undefined constant LAN_*".
+	 *
+	 * Designed to be called immediately before requireing a legacy template:
+	 *   <code>
+	 *   $tmpl = e107::coreTemplatePath('fpw');
+	 *   e107::predefineLegacyLans($tmpl);
+	 *   require_once $tmpl;
+	 *   </code>
+	 *
+	 * This split (scan + caller's own require) preserves the caller's
+	 * variable scope — legacy templates assign $FPW_TABLE / $SIGNUP_BODY /
+	 * etc. at top level and the caller expects those to land in its own
+	 * scope, which only happens when require runs at the caller's location.
+	 *
+	 * Each auto-defined constant emits an E_USER_WARNING naming the
+	 * constant and the template path; the value is set equal to the
+	 * constant name so missing strings render visibly rather than as
+	 * empty space.
+	 *
+	 * Extraction results are cached keyed on sha1_file($path), so the
+	 * tokeniser runs only on cache miss (first request or after file edit).
+	 * APCu is used when available + enabled; otherwise a file under e_CACHE.
+	 *
+	 * @param string $path absolute filesystem path to the template
+	 * @return bool true if the scan ran (file readable), false otherwise.
+	 *              A false return means the caller should not assume
+	 *              auto-defines happened.
+	 */
+	public static function predefineLegacyLans($path)
+	{
+		if(!is_string($path) || $path === '' || !is_readable($path))
+		{
+			return false;
+		}
+
+		$names = self::_extractLanConstantsFromTemplate($path);
+		foreach($names as $name)
+		{
+			if(!defined($name))
+			{
+				define($name, $name);
+				trigger_error(
+					"Auto-defined missing LAN constant '" . $name . "' in " . $path,
+					E_USER_WARNING
+				);
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Convenience wrapper for callers that don't need template-defined
+	 * variables to land in their own scope (e.g. templates whose output
+	 * is exclusively side-effectful via super-globals or constants).
+	 *
+	 * Wraps predefineLegacyLans($path) + `require $path`. NOTE: variables
+	 * defined inside the template land in this method's scope and are
+	 * unreachable from the caller. Most legacy templates depend on
+	 * caller-scope variables — use predefineLegacyLans() + your own
+	 * require/include instead.
+	 *
+	 * @param string $path absolute filesystem path to the template
+	 * @return bool true on success, false on missing/unreadable file
+	 */
+	public static function requireLegacyTemplate($path)
+	{
+		if(!self::predefineLegacyLans($path))
+		{
+			return false;
+		}
+		require $path;
+		return true;
+	}
+
+	/**
+	 * Extract the set of LAN_* T_STRING tokens referenced as bare constants
+	 * in the given template. Results are cached keyed on sha1_file($path)
+	 * so the tokeniser only runs on cache miss.
+	 *
+	 * The scan is *not* transitive — only the supplied file is inspected.
+	 * Nested includes are expected to flow back through requireLegacyTemplate()
+	 * via coreTemplatePath() and get their own scan.
+	 *
+	 * @param string $path absolute filesystem path
+	 * @return string[]    distinct LAN_* names referenced as bare constants
+	 */
+	protected static function _extractLanConstantsFromTemplate($path)
+	{
+		$realpath = realpath($path);
+		$key = $realpath !== false ? $realpath : $path;
+
+		// Process-local memoisation — same path resolved repeatedly in one request.
+		static $local = array();
+		if(isset($local[$key]))
+		{
+			return $local[$key];
+		}
+
+		$sig = @hash_file('sha256', $path);
+		if($sig === false)
+		{
+			$local[$key] = array();
+			return $local[$key];
+		}
+
+		$cacheKey = 'lantokens_' . hash('sha256', $key) . '_' . $sig;
+
+		// APCu first if available + enabled.
+		$apcuActive = function_exists('apcu_fetch')
+			&& function_exists('apcu_enabled')
+			&& @apcu_enabled();
+
+		if($apcuActive)
+		{
+			$fetched = apcu_fetch($cacheKey, $ok);
+			if($ok && is_array($fetched))
+			{
+				$local[$key] = $fetched;
+				return $fetched;
+			}
+		}
+
+		// File cache fallback under e_CACHE.
+		$cacheDir = defined('e_CACHE') ? e_CACHE : null;
+		$cacheFile = null;
+		if(!$apcuActive && $cacheDir && is_dir($cacheDir) && is_writable($cacheDir))
+		{
+			$cacheFile = rtrim($cacheDir, '/\\') . DIRECTORY_SEPARATOR . $cacheKey . '.php';
+			if(is_file($cacheFile))
+			{
+				$cached = @include $cacheFile;
+				if(is_array($cached))
+				{
+					$local[$key] = $cached;
+					return $cached;
+				}
+			}
+		}
+
+		$src = @file_get_contents($path);
+		if($src === false)
+		{
+			$local[$key] = array();
+			return $local[$key];
+		}
+
+		$names = self::_extractLanConstantsFromSource($src);
+
+		if($apcuActive)
+		{
+			@apcu_store($cacheKey, $names, 0);
+		}
+		elseif($cacheFile !== null)
+		{
+			$payload = "<?php\nreturn " . var_export($names, true) . ";\n";
+			// Atomic-ish write: temp + rename.
+			$tmp = $cacheFile . '.' . getmypid() . '.tmp';
+			if(@file_put_contents($tmp, $payload, LOCK_EX) !== false)
+			{
+				@rename($tmp, $cacheFile);
+			}
+		}
+
+		$local[$key] = $names;
+		return $names;
+	}
+
+	/**
+	 * Tokenise PHP source and return the set of LAN_* names that look like
+	 * bare constant references. Public-static so test harnesses can exercise
+	 * it without touching the filesystem.
+	 *
+	 * Filters out tokens that are:
+	 *   - preceded (ignoring whitespace/comments) by function / class / interface
+	 *     / trait / use / :: / ->  (declarations & member access, not constants)
+	 *   - immediately followed by `(`  (function calls — defensive)
+	 *
+	 * @param string $src PHP source code
+	 * @return string[]    distinct LAN_* names
+	 */
+	public static function _extractLanConstantsFromSource($src)
+	{
+		if(!is_string($src) || $src === '' || !function_exists('token_get_all'))
+		{
+			return array();
+		}
+
+		$tokens = @token_get_all($src);
+		if(!is_array($tokens))
+		{
+			return array();
+		}
+
+		$found = array();
+		$count = count($tokens);
+
+		for($i = 0; $i < $count; $i++)
+		{
+			$t = $tokens[$i];
+			if(!is_array($t) || $t[0] !== T_STRING)
+			{
+				continue;
+			}
+			$name = $t[1];
+			if(strncmp($name, 'LAN_', 4) !== 0)
+			{
+				continue;
+			}
+
+			// Look back: skip whitespace & comments to find context token.
+			$prev = null;
+			for($j = $i - 1; $j >= 0; $j--)
+			{
+				$p = $tokens[$j];
+				if(is_array($p))
+				{
+					$pid = $p[0];
+					if($pid === T_WHITESPACE || $pid === T_COMMENT || $pid === T_DOC_COMMENT)
+					{
+						continue;
+					}
+				}
+				$prev = $p;
+				break;
+			}
+			if(is_array($prev))
+			{
+				$pid = $prev[0];
+				if($pid === T_FUNCTION
+					|| $pid === T_CLASS
+					|| $pid === T_INTERFACE
+					|| $pid === T_TRAIT
+					|| $pid === T_USE
+					|| $pid === T_DOUBLE_COLON
+					|| $pid === T_OBJECT_OPERATOR
+					|| (defined('T_NULLSAFE_OBJECT_OPERATOR') && $pid === T_NULLSAFE_OBJECT_OPERATOR)
+					|| (defined('T_NAME_QUALIFIED') && $pid === T_NAME_QUALIFIED)
+					|| (defined('T_NAME_FULLY_QUALIFIED') && $pid === T_NAME_FULLY_QUALIFIED))
+				{
+					continue;
+				}
+			}
+
+			// Look ahead: skip whitespace & comments — if next is `(`, treat as call.
+			$next = null;
+			for($k = $i + 1; $k < $count; $k++)
+			{
+				$n = $tokens[$k];
+				if(is_array($n))
+				{
+					$nid = $n[0];
+					if($nid === T_WHITESPACE || $nid === T_COMMENT || $nid === T_DOC_COMMENT)
+					{
+						continue;
+					}
+				}
+				$next = $n;
+				break;
+			}
+			if($next === '(')
+			{
+				continue;
+			}
+
+			$found[$name] = true;
+		}
+
+		return array_keys($found);
 	}
 
 	/**
@@ -3745,6 +4023,7 @@ class e107
 		return ($ret && is_array($ret) && isset($ret[$key])) ? $ret[$key] : false;
 	}
 
+
 	/**
 	 * Load a language file, serving as a replacement for the legacy include_lan() function.
 	 *
@@ -3895,6 +4174,8 @@ class e107
 			}
 		}
 	}
+
+
 
 	/**
 	 * Simplify importing of core Language files.
@@ -4378,7 +4659,7 @@ class e107
 	 * 	'fragment' => '', // A fragment identifier (named anchor) to append to the URL. Do not include the leading '#' character
 	 * 	'legacy' => false, // When true, legacy URLs will be generated regardless of mod_rewrite status
 	 * 	]
-	 * @return string   The SEF URL with HTML special characters escaped
+	 * @return string|false   The SEF URL with HTML special characters escaped
 	 *                  (equivalent to the htmlspecialchars() output)
 	 */
 	public static function url($plugin = '', $key = null, $row = array(), $options = array())
@@ -4608,20 +4889,37 @@ class e107
 	/**
 	 * Getter/Setter for schema. eg. Google structured data etc.
 	 * @param string $json
-	 * @return string|bool
+	 * @return string|null
 	 */
 	public static function schema($json = null)
 	{
+
+		static $currentSchema = [];
+
 		if(empty($json))
 		{
-			return self::getRegistry('core/e107/schema', false);
+			if(empty($currentSchema))
+			{
+				return '';
+			}
+
+			$output = '';
+			foreach($currentSchema as $schema)
+			{
+				if(!empty($schema))
+				{
+					$output .= '<script type="application/ld+json">' . $schema . "</script>\n";
+				}
+			}
+
+			return $output;
 		}
 
 
-		return self::setRegistry('core/e107/schema',$json);
+		$currentSchema[] = $json;
 
+		return self::setRegistry('core/e107/schema', $currentSchema);
 	}
-
 
 	/**
 	 * Retrieve error page handler.
@@ -4930,7 +5228,10 @@ class e107
 		$_SERVER['PHP_SELF'] = (($pos = stripos($_SERVER['PHP_SELF'], '.php')) !== false ? substr($_SERVER['PHP_SELF'], 0, $pos+4) : $_SERVER['PHP_SELF']);
 		$_SERVER['SERVER_NAME'] = $_SERVER['SERVER_NAME'] ?? '';
 		$_SERVER['HTTP_HOST'] = $_SERVER['HTTP_HOST'] ?? '';
-		$_SERVER['HTTP_HOST'] = !empty($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : $_SERVER['HTTP_HOST'];
+		// Prefer the client `Host` header so a non-standard port survives into
+		// every URL built from HTTP_HOST (form actions, SITEURL, redirects); a
+		// malformed/crafted Host falls back to SERVER_NAME. See resolveHttpHost().
+		$_SERVER['HTTP_HOST'] = self::resolveHttpHost($_SERVER);
 
 		if(empty($_SERVER['HTTP_HOST']) && !self::isCli())
 		{
@@ -4965,7 +5266,7 @@ class e107
 	 * @param string $key array key
 	 * @param string $type array type _SESSION, _GET etc.
 	 * @param bool $base64
-	 * @return bool|null
+	 * @return bool|null|string
 	 */
 	public static function filter_request($input,$key,$type,$base64=FALSE)
 	{
@@ -5696,7 +5997,7 @@ class e107
 
 		if(self::isCli())
 		{
-			define('SITEURL', self::getPref('siteurl'));
+			define('SITEURL', $siteurl);
 			define('SITEURLBASE', rtrim(SITEURL,'/'));
 		}
 		elseif(!empty($configured_host) && strpos($siteurl,'http')!== false && !$this->isAllowedHost($allowed_hosts, $http_host))
@@ -5710,6 +6011,14 @@ class e107
 			define('SITEURL', SITEURLBASE.e_HTTP);
 		}
 
+
+		// login/signup
+		define('e_SIGNUP', SITEURL.(file_exists(e_BASE.'customsignup.php') ? 'customsignup.php' : 'signup.php'));
+
+		if(!defined('e_LOGIN'))
+		{
+			define('e_LOGIN', SITEURL.(file_exists(e_BASE.'customlogin.php') ? 'customlogin.php' : 'login.php'));
+		}
 
 		return $this;
 	}
@@ -5821,6 +6130,43 @@ class e107
 		$host = preg_replace('/:\d+$/', '', $host);
 		$host = preg_replace('/^www\./', '', $host);
 		return $host;
+	}
+
+	/**
+	 * Resolve the request's HTTP host (`host` or `host:port`) from a `$_SERVER`
+	 * array, preferring the client-supplied `Host` header so the visited port
+	 * survives into every URL built from it (form actions, SITEURL, redirects).
+	 *
+	 * The `Host` header is client-controlled, so it is trusted only when it is
+	 * shaped like a bare hostname / IPv4 or a bracketed IPv6 literal with an
+	 * optional numeric port. Anything else (a crafted Host carrying quotes,
+	 * markup or a path) falls back to the server-configured `SERVER_NAME`, which
+	 * a client cannot influence, keeping a malformed Host out of generated URLs.
+	 *
+	 * Spoofing with a *valid-looking* host is a separate concern, contained by
+	 * the siteurl / `trusted_hosts` allow-list in {@see e107::set_urls_deferred()}
+	 * via {@see e107::isAllowedHost()}.
+	 *
+	 * @param array $server typically `$_SERVER`
+	 *
+	 * @return string the resolved `host` or `host:port`, or '' when neither
+	 *                source is usable
+	 */
+	private static function resolveHttpHost($server)
+	{
+		$httpHost   = isset($server['HTTP_HOST'])   ? (string) $server['HTTP_HOST']   : '';
+		$serverName = isset($server['SERVER_NAME']) ? (string) $server['SERVER_NAME'] : '';
+
+		// A bare hostname / IPv4, or a bracketed IPv6 literal, with an optional
+		// numeric port: what a browser puts in the `Host` header.
+		$shaped = '/^(?:[A-Za-z0-9._-]+|\[[0-9A-Fa-f:]+\])(?::\d{1,5})?$/';
+
+		if($httpHost !== '' && preg_match($shaped, $httpHost))
+		{
+			return $httpHost;
+		}
+
+		return $serverName;
 	}
 
 	/**
@@ -6355,67 +6701,79 @@ class e107
 	 */
 	public function __get($name)
 	{
-		switch ($name)
+
+		// Use a static cache to store instances
+		static $instances = [];
+
+		if(isset($instances[$name]))
+		{
+			return $instances[$name];
+		}
+
+		switch($name)
 		{
 			case 'tp':
 				$ret = self::getParser();
-			break;
+				break;
 
 			case 'sql':
 				$ret = self::getDb();
-			break;
+				break;
 
 			case 'ecache':
 				$ret = self::getCache();
-			break;
+				break;
 
 			case 'arrayStorage':
 				$ret = self::getArrayStorage();
-			break;
+				break;
 
 			case 'e_event':
 				$ret = self::getEvent();
-			break;
+				break;
 
 			case 'ns':
 				$ret = self::getRender();
-			break;
+				break;
 
 			case 'url':
 				$ret = self::getUrl();
-			break;
+				break;
 
 			case 'admin_log':
 				$ret = self::getLog();
-			break;
+				break;
 
 			case 'override':
-				$ret = self::getSingleton('override', e_HANDLER.'override_class.php');
-			break;
+				$ret = self::getSingleton('override', e_HANDLER . 'override_class.php');
+				break;
 
 			case 'notify':
 				$ret = self::getNotify();
-			break;
+				break;
 
 			case 'e_online':
 				$ret = self::getOnline();
-			break;
+				break;
 
 			case 'eIPHandler':
 				$ret = self::getIPHandler();
 				break;
-				
+
 			case 'user_class':
 				$ret = self::getUserClass();
-			break;
+				break;
 
 			default:
-				trigger_error('$e107->$'.$name.' not defined', E_USER_WARNING);
+				trigger_error('$e107->$' . $name . ' not defined', E_USER_WARNING);
+
 				return null;
-			break;
+				break;
 		}
 
-		$this->$name = $ret;
+		// Store the result in the static cache
+		$instances[$name] = $ret;
+
 		return $ret;
 	}
 
