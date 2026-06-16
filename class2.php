@@ -160,16 +160,17 @@ if(empty($PLUGINS_DIRECTORY))
 //define("MPREFIX", $mySQLprefix); moved to $e107->set_constants()
 
 // Positively detect a completed installation: real database credentials must be
-// present (the legacy $mySQLdefaultdb). Anything else - a missing/empty/0-byte
-// file, or an install-pending lock holding only a provisioning token - is not
-// installed, so redirect to the installer.
-$e107_install_pending = !empty($E107_CONFIG['install_pending']);
+// present (v2.4 'database.db' or the legacy $mySQLdefaultdb). Anything else - a
+// missing/empty/0-byte file, or an install-pending lock - is not installed, so
+// redirect to the installer.
+$e107_installed = !empty($mySQLdefaultdb) || (is_array($config) && !empty($config['database']['db']));
+$e107_install_pending = (is_array($config) && !empty($config['other']['install_pending'])) || !empty($E107_CONFIG['install_pending']);
 
-if($e107_install_pending || empty($mySQLdefaultdb))
+if ($e107_install_pending || !$e107_installed)
 {
-  // e107_config.php is empty/invalid, or holds a not-yet-finished install lock.
-  header('Location: install.php');
-  exit();
+	// e107_config.php is empty/invalid, or holds a not-yet-finished install lock.
+	header('Location: install.php');
+	exit();
 }
 
 // Upgrade Compatibility - Disable CL_WIDGETS before e107_class.php is loaded.

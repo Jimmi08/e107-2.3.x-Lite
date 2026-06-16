@@ -1982,7 +1982,7 @@ return [
 				$this->add_button('submit', LAN_CONTINUE);
 			}
 
-		//$this->stats(); LITE MOFIFICATION
+		//$this->stats(); LITE MODIFICATION phone-home stats stripped — do not re-add when syncing stage_8
 		$this->finish_form();
 
 		$this->template->SetTag("stage_content", "<div class='alert alert-block alert-{$alertType}'>".$page."</div>".$e_forms->return_form());
