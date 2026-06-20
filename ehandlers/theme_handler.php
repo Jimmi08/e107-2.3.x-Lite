@@ -2604,7 +2604,7 @@ class themeHandler
 		// Distinct from library_manager.php — that bumps the FRONTEND
 		// library (BS 5.2 -> 5.3); admin backend stays BS3.
 		$text .= "
-        
+
         <ul class='nav nav-tabs'>
         <li class='active'><a data-toggle='tab' data-bs-toggle='tab' href='#core-thememanager-configure'>".LAN_CONFIGURE."</a></li>";
 		
@@ -2908,8 +2908,7 @@ class themeHandler
 					$text .= "</div>
 			</div>
 			
-			
-			 
+			 <div class='tab-pane' id='core-thememanager-help'>".$this->renderThemeHelp()."</div>
 			 
 			 <div class='tab-pane' id='core-thememanager-customconfig'>
 			 	<table class='table adminform'>
@@ -2942,12 +2941,7 @@ class themeHandler
 				$text .= "<input type='hidden' name='curTheme' value='".$theme['path']."' />";
 		
 				$text .= "</div>
-
-
 			</div>
-
-
-			 <div class='tab-pane' id='core-thememanager-help'>" . $this->renderThemeHelp() . "</div>
         </div>
         </div>
 		\n";
@@ -3063,7 +3057,7 @@ class themeHandler
 			else
 			{
 				//	echo $plug;
-				if($sql->select("plugin", "plugin_id", " plugin_path = '".$sql->escape($plug)."' LIMIT 1 "))
+				if($sql->createQueryBuilder()->select('plugin_id')->from('plugin')->where('plugin_path', $plug)->limit(1)->execute())
 				{
 					$row = $sql->fetch();
 					$name = "installplugin[".$row['plugin_id']."]";
@@ -3192,7 +3186,7 @@ class themeHandler
 			$mes->addDebug("Custom Pages: ".print_a($customPages,true));
 			
 			$med = e107::getMedia();
-			$med->import('_common_image', e_THEME.$name, "^.*?logo.*?(\.png|\.jpeg|\.jpg|\.JPG|\.GIF|\.PNG)$");	
+			$med->import('_common_image', e_THEME.$name, "^.*?logo.*?(\.png|\.jpeg|\.jpg|\.JPG|\.GIF|\.PNG)$");
 			// LITE MODIFICATION: _common_image imported from theme /install/
 			// subdir, not theme root. Lite theme-packaging convention places
 			// install assets in /install/. Revert only if Lite's theme
@@ -3573,8 +3567,8 @@ interface e_theme_config
 
 /**
  * Interface e_theme_render
- * @see e107_themes/bootstrap3/theme.php
- * @see e107_themes/bootstrap3/admin_theme.php
+ * @see ethemes/bootstrap3/theme.php
+ * @see ethemes/bootstrap3/admin_theme.php
  */
 interface e_theme_render
 {

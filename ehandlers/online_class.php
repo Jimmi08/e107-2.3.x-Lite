@@ -123,9 +123,7 @@ class e_online
 
 			// XXX - more exceptions, e.g. hide online location for admins/users (pref), e_jlsib.php, etc
 			// XXX - more advanced flod timing when  e_AJAX_REQUEST, e.g. $ban_access_ajax = 300
-			// $page (REQUEST_URI) is interpolated into raw string queries below; escape for that use.
-			// (The array-form insert/update binds $page directly, so $page itself is left untouched.)
-			$update_page = deftrue('e_AJAX_REQUEST') ? '' : ", online_location='".$sql->escape($page)."'";
+			$update_page = deftrue('e_AJAX_REQUEST') ? '' : ", online_location='{$page}'";
 
 			$insert_query = array(
 				'online_timestamp'	=> time(),
@@ -147,7 +145,7 @@ class e_online
 				$dbg->logTime('Go online (isUser)');
 				// Find record that matches IP or visitor, or matches user info
 				$dbg->logTime('Go online (db select)');
-				if ($sql->select('online', '*', "(`online_ip` = '".$sql->escape($ip)."' AND `online_user_id` = '0') OR `online_user_id` = '".$sql->escape($udata)."' LIMIT 1"))
+				if ($sql->createQueryBuilder()->select('*')->from('online')->where(function($q) use ($ip) { $q->where('online_ip', $ip)->where('online_user_id', '0'); })->orWhere('online_user_id', $udata)->limit(1)->execute())
 				{
 					$dbg->logTime('Go online (db fetch)');
 					$row = $sql->fetch();
@@ -206,7 +204,7 @@ class e_online
 								'online_user_id'    => $udata,
 								'online_pagecount'  => 1,
 								'online_active'     => 1,
-								'WHERE'             => "online_ip = '".$sql->escape($ip)."' AND online_user_id = '0' LIMIT 1"
+								'WHERE'             => "online_ip = '".$ip."' AND online_user_id = '0' LIMIT 1"
 							);
 
 
@@ -225,7 +223,7 @@ class e_online
 								'online_user_id'    => $udata,
 								'online_pagecount'  => intval($row['online_pagecount']),
 								'online_active'     => 1,
-								'WHERE'             => "online_ip = '".$sql->escape($ip)."' AND online_user_id = '0' LIMIT 1"
+								'WHERE'             => "online_ip = '".$ip."' AND online_user_id = '0' LIMIT 1"
 							);
 
 						}
@@ -255,21 +253,32 @@ class e_online
 			elseif(!$user->getParentId())
 			{
 				//Current page request is from a guest
-				if ($sql->select('online', '*', "`online_ip` = '".$sql->escape($ip)."' AND `online_user_id` = '0'"))
+				if ($sql->select('online', '*', "`online_ip` = '{$ip}' AND `online_user_id` = '0'"))
 				{	// Recent visitor
 					$row = $sql->fetch();
 
 					if ($row['online_timestamp'] < (time() - $online_timeout)) //It has been at least 'timeout' seconds since this ip has connected
 					{
 						//Update record with timestamp, current page, and set pagecount to 1
-						$query = "`online_timestamp` = '".time()."'{$update_page}, `online_pagecount` = 1 WHERE `online_ip` = '".$sql->escape($ip)."' AND `online_user_id` = '0'";
+						$query = array(
+							'online_timestamp'	=> time(),
+							'online_pagecount'	=> 1,
+							'WHERE'				=> "online_ip = '".$ip."' AND online_user_id = '0'"
+						);
 					}
 					else
 					{
 						//Update record with current page and increment pagecount
 						$row['online_pagecount'] ++;
 						//   echo "here {$online_pagecount}";
-						$query="`online_pagecount` = ".intval($row['online_pagecount'])."{$update_page} WHERE `online_ip` = '".$sql->escape($ip)."' AND `online_user_id` = '0'";
+						$query = array(
+							'online_pagecount'	=> intval($row['online_pagecount']),
+							'WHERE'				=> "online_ip = '".$ip."' AND online_user_id = '0'"
+						);
+					}
+					if(!empty($update_page))
+					{
+						$query['online_location'] = $page;
 					}
 					$dbg->logTime('Go online (update) Line:'.__LINE__);
 					$sql->update('online', $query);
@@ -329,7 +338,7 @@ class e_online
 				// Remove only if upstream adopts the init or the query is
 				// rewritten to always return a value.
 				$members_online = 0; // Undefined variable $members_online fix
-			if ($total_online = $sql->gen('SELECT o.*,u.user_image FROM `#online` AS o LEFT JOIN `#user` AS u ON o.online_user_id = u.user_id WHERE o.online_pagecount > 0 ORDER BY o.online_timestamp DESC'))
+				if ($total_online = $sql->gen('SELECT o.*,u.user_image FROM `#online` AS o LEFT JOIN `#user` AS u ON o.online_user_id = u.user_id WHERE o.online_pagecount > 0 ORDER BY o.online_timestamp DESC'))
 			//	if ($total_online = $sql->gen('SELECT o  FROM `#online`  WHERE o.online_pagecount > 0 ORDER BY o.online_timestamp DESC'))
 				{
 					$member_list = '';
@@ -385,7 +394,7 @@ class e_online
 					define('MEMBERS_ONLINE', $members_online);
 					define('GUESTS_ONLINE', $total_online - $members_online);
 					$dbg->logTime('Go online (db count) Line:'.__LINE__);
-					define('ON_PAGE', $sql->count('online', '(*)', "WHERE `online_location` = '".$sql->escape($page)."' "));
+					define('ON_PAGE', $sql->createQueryBuilder()->from('online')->where('online_location', $page)->count());
 					define('MEMBER_LIST', $member_list);
 				}
 				//update most ever online

@@ -1031,7 +1031,7 @@ class eMessage
 	 * @return int|bool db::db_Query result
 	 */
 	 // TODO - This function often needs to be available BEFORE header.php is loaded. 
-	 // It has been copied from admin_update() in e107_admin/header.php
+	 // It has been copied from admin_update() in eadmin/header.php
 	 
 	public function addAuto($update, $type = 'update', $success = false, $failed = false, $output = false)
 	{
@@ -1104,7 +1104,7 @@ function show_emessage($mode, $message, $line = 0, $file = "") {
 		<title>Error</title>
 		<link rel="stylesheet" media="all" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" />
 		<link rel="stylesheet" media="all" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css" />
-		<link rel="stylesheet" media="all" type="text/css" href="/e107_web/css/e107.css" />
+		<link rel="stylesheet" media="all" type="text/css" href="/eweb/css/e107.css" />
 		</head>
 		<body >
 		<div class="container" style="margin-top:100px">';
@@ -1123,7 +1123,7 @@ function show_emessage($mode, $message, $line = 0, $file = "") {
 
 		if(!defined('e_LANGUAGEDIR'))
 		{
-			define('e_LANGUAGEDIR','e107_languages/');
+			define('e_LANGUAGEDIR','elanguages/');
 		}
 
 		$path = e_LANGUAGEDIR.e_LANGUAGE."/lan_error.php";
@@ -1160,27 +1160,27 @@ function show_emessage($mode, $message, $line = 0, $file = "") {
 		$emessage[7] = "<b>".$tp->lanVars(LAN_ERROR_31, $mySQLdefaultdb)."</b>";
 		/*$emessage[8] = "
 			<div style='text-align:center; font: 12px Verdana, Tahoma'><b>".LAN_ERROR_32." </b><br /><br />
-			".chr(36)."ADMIN_DIRECTORY = \"e107_admin/\";<br />
-			".chr(36)."FILES_DIRECTORY = \"e107_files/\";<br />
-			".chr(36)."IMAGES_DIRECTORY = \"e107_images/\"; <br />
-			".chr(36)."THEMES_DIRECTORY = \"e107_themes/\"; <br />
-			".chr(36)."PLUGINS_DIRECTORY = \"e107_plugins/\"; <br />
-			".chr(36)."HANDLERS_DIRECTORY = \"e107_handlers/\"; <br />
-			".chr(36)."LANGUAGES_DIRECTORY = \"e107_languages/\"; <br />
-			".chr(36)."HELP_DIRECTORY = \"e107_docs/help/\";  <br />
-			".chr(36)."DOWNLOADS_DIRECTORY =  \"e107_files/downloads/\";\n
+			".chr(36)."ADMIN_DIRECTORY = \"eadmin/\";<br />
+			".chr(36)."FILES_DIRECTORY = \"efiles/\";<br />
+			".chr(36)."IMAGES_DIRECTORY = \"eimages/\"; <br />
+			".chr(36)."THEMES_DIRECTORY = \"ethemes/\"; <br />
+			".chr(36)."PLUGINS_DIRECTORY = \"eplugins/\"; <br />
+			".chr(36)."HANDLERS_DIRECTORY = \"ehandlers/\"; <br />
+			".chr(36)."LANGUAGES_DIRECTORY = \"elanguages/\"; <br />
+			".chr(36)."HELP_DIRECTORY = \"edocs/help/\";  <br />
+			".chr(36)."DOWNLOADS_DIRECTORY =  \"efiles/downloads/\";\n
 			</div>";*/
 			//v2.x
 		$emessage[8] = '<b>'.LAN_ERROR_32.' </b><br /><br /><pre>
-$ADMIN_DIRECTORY     = "e107_admin/";
-$IMAGES_DIRECTORY    = "e107_images/";
-$THEMES_DIRECTORY    = "e107_themes/";
-$PLUGINS_DIRECTORY   = "e107_plugins/";
-$HANDLERS_DIRECTORY  = "e107_handlers/";
-$LANGUAGES_DIRECTORY = "e107_languages/";
-$HELP_DIRECTORY	     = "e107_docs/help/";
-$MEDIA_DIRECTORY     = "e107_media/";
-$SYSTEM_DIRECTORY    = "e107_system/";</pre>
+$ADMIN_DIRECTORY     = "eadmin/";
+$IMAGES_DIRECTORY    = "eimages/";
+$THEMES_DIRECTORY    = "ethemes/";
+$PLUGINS_DIRECTORY   = "eplugins/";
+$HANDLERS_DIRECTORY  = "ehandlers/";
+$LANGUAGES_DIRECTORY = "elanguages/";
+$HELP_DIRECTORY	     = "edocs/help/";
+$MEDIA_DIRECTORY     = "emedia/";
+$SYSTEM_DIRECTORY    = "esystem/";</pre>
 
 		';
 

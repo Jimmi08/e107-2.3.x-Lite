@@ -977,7 +977,9 @@ class e_plugin_pref extends e_pref
 	 */
 	function __construct($plugin_id, $multi_row = '', $load = true)
 	{
-		$this->plugin_id = $plugin_id;
+		// Sanitise like e_pref::__construct does for $prefid; $this->plugin_id is used
+		// directly in a DELETE WHERE clause by delete().
+		$this->plugin_id = preg_replace('/[^\w\-]/', '', $plugin_id);
 		if($multi_row)
 		{
 			$plugin_id = $plugin_id.'_'.$multi_row;
@@ -1001,7 +1003,7 @@ class e_plugin_pref extends e_pref
 
 	/**
 	 * Delete plugin preferences
-	 * @see e107_handlers/e_pref#delete()
+	 * @see ehandlers/e_pref#delete()
 	 * @return boolean
 	 */
 	public function delete($ids, $destroy = true, $session_messages = false)
@@ -1009,7 +1011,7 @@ class e_plugin_pref extends e_pref
 		$ret = false;
 		if($this->plugin_id)
 		{
-			$ret = e107::getDb($this->plugin_id)->delete('core', "e107_name='".e107::getDb($this->plugin_id)->escape($this->plugin_id)."'");
+			$ret = e107::getDb($this->plugin_id)->delete('core', "e107_name='{$this->plugin_id}'");
 			$this->destroy();
 		}
 		return $ret;
@@ -1046,7 +1048,9 @@ class e_theme_pref extends e_pref
 	 */
 	function __construct($theme_id, $multi_row = '', $load = true)
 	{
-		$this->theme_id = $theme_id;
+		// Sanitise like e_pref::__construct does for $prefid; $this->theme_id is used
+		// directly in a DELETE WHERE clause by delete().
+		$this->theme_id = preg_replace('/[^\w\-]/', '', $theme_id);
 		if($multi_row)
 		{
 			$theme_id = $theme_id.'_'.$multi_row;
@@ -1070,7 +1074,7 @@ class e_theme_pref extends e_pref
 
 	/**
 	 * Delete plugin preferences
-	 * @see e107_handlers/e_pref#delete()
+	 * @see ehandlers/e_pref#delete()
 	 * @return boolean
 	 */
 	public function delete($ids, $destroy = true, $session_messages = false)
@@ -1078,7 +1082,7 @@ class e_theme_pref extends e_pref
 		$ret = false;
 		if($this->theme_id)
 		{
-			$ret = e107::getDb($this->theme_id)->delete('core', "e107_name='".e107::getDb($this->theme_id)->escape($this->theme_id)."'");
+			$ret = e107::getDb($this->theme_id)->delete('core', "e107_name='{$this->theme_id}'");
 			$this->destroy();
 		}
 		return $ret;

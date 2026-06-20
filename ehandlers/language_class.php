@@ -317,7 +317,7 @@ class language{
 		if($iso==false || $lang==false)
 		{
 			$diz = ($lang) ? $lang : $iso;
-			trigger_error("The selected language (".$diz.") is invalid. See e107_handlers/language_class.php for a list of valid languages. ", E_USER_ERROR);
+			trigger_error("The selected language (".$diz.") is invalid. See ehandlers/language_class.php for a list of valid languages. ", E_USER_ERROR);
 			return false;
 		}
 		
@@ -733,6 +733,20 @@ class language{
 
 	/**
 	 * Define Legacy LAN constants based on a supplied array.
+	 *
+	 * Called once at boot from class2.php with no arguments to apply a
+	 * default "graveyard" of legacy v1.x → v2.x constant aliases. Called
+	 * again from per-entrypoint sites (e.g. fpw.php, signup.php,
+	 * usersettings.php) with a scoped array for context-specific mappings.
+	 *
+	 * The default below is bounded by class2.php's boot order: only the
+	 * Replacement-LAN constants already loaded from English/English.php
+	 * at bcDefs() call time can resolve via defined()/constant(). Mappings
+	 * whose replacement comes from a lazily-loaded LAN file (e.g.
+	 * LAN_FPW22 from lan_fpw.php) silently no-op here and must be handled
+	 * by per-entrypoint bcDefs($localList) calls that run after the
+	 * relevant coreLan().
+	 *
 	 * @param array $bcList legacyLAN => Replacement-LAN
 	 */
 	// LITE MODIFICATION: bcDefs() default array reduced to a single

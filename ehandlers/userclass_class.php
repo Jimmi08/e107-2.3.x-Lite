@@ -1246,17 +1246,30 @@ class user_class
 
 		$lj = strpos($fields,'ue.') !== false ? "LEFT JOIN `#user_extended` AS ue ON user_id = ue.user_extended_id " : "";
 
-		// $fields (column list) and $orderBy (order column) are SQL identifiers; reject unsafe values.
-		if(!preg_match('/^[A-Za-z0-9_,\.\s]+$/', (string) $fields))
+		// $fields and $orderBy are SQL identifiers (cannot be bound); validate each
+		// field token and restrict $orderBy to a plain identifier (optionally ASC/DESC)
+		// so neither can inject SQL.
+		$fieldTokens = array();
+		foreach(explode(',', $fields) as $fld)
 		{
-			$fields = 'user_name, user_loginname';
+			$qfld = $sql->quoteIdentifier(trim($fld));
+			if($qfld !== false)
+			{
+				$fieldTokens[] = $qfld;
+			}
 		}
-		if(!preg_match('/^[A-Za-z0-9_,\.\s]+$/', (string) $orderBy))
+		if(empty($fieldTokens))
+		{
+			$fieldTokens = array('`user_name`', '`user_loginname`');
+		}
+		$safeFields = implode(', ', $fieldTokens);
+
+		if(!preg_match('/^[A-Za-z0-9_.]+( +(ASC|DESC))?$/iD', trim((string) $orderBy)))
 		{
 			$orderBy = 'user_id';
 		}
 
-		$query = "SELECT user_id,{$fields} FROM `#user` ".$lj." WHERE ".implode(" OR ",$qry)." ORDER BY ".$orderBy;
+		$query = "SELECT user_id,{$safeFields} FROM `#user` ".$lj." WHERE ".implode(" OR ",$qry)." ORDER BY ".$orderBy;
 
 		if ($sql->gen($query))
 		{
@@ -1866,8 +1879,6 @@ class user_class_admin extends user_class
 		//	echo 'Programming bungle on save - no ID field<br />';
 			return FALSE;
 		}
-		$qry = '';
-		$spacer = '';
 		if (isset($classrec['userclass_type']) && ($classrec['userclass_type'] == UC_TYPE_GROUP))
 		{	// Need to make sure our ID is in the accumulation array
 			$temp = explode(',',$classrec['userclass_accum']);
@@ -1878,15 +1889,16 @@ class user_class_admin extends user_class
 			}
 		}
 
+		$qb = $this->sql_r->createQueryBuilder()->update('userclass_classes');
 		foreach ($this->field_list as $fl => $val)
 		{
 			if (isset($classrec[$fl]))
 			{
-				$qry .= $spacer."`".$fl."` = '".$this->sql_r->escape($classrec[$fl])."'";
-				$spacer = ", ";
+				// $fl is a trusted internal column name; bind the value.
+				$qb->set($fl, $classrec[$fl]);
 			}
 		}
-		if ($this->sql_r->update('userclass_classes', $qry." WHERE `userclass_id`='".intval($classrec['userclass_id'])."'") === FALSE)
+		if ($qb->where('userclass_id', (int) $classrec['userclass_id'])->execute() === FALSE)
 		{
 			return FALSE;
 		}

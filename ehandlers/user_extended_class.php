@@ -1184,7 +1184,7 @@ class e107_user_extended
 	{
 		$tp = e107::getParser();
 		$frm = e107::getForm();
- 
+
 		// LITE MODIFICATION: is_string() guard before trim().
 		// PHP 7.4/8 hardening — passing a non-string to trim() emits a
 		// deprecation notice on PHP 8.1+. Upstream lacks the guard.
@@ -1193,7 +1193,6 @@ class e107_user_extended
 		{
 			$curval = trim($curval);
 		}
-	 
 
 		if(empty($curval) && !empty($struct['user_extended_struct_default']))
 		{
@@ -1235,7 +1234,7 @@ class e107_user_extended
 		}
 
 		$ret = null;
- 
+
 		switch($struct['user_extended_struct_type'])
 		{
 
@@ -1435,12 +1434,7 @@ class e107_user_extended
 						$curval = '';
 					}
 
-					if($fname == "ue[user_birthday]") {
-						$opts = array('format' => 'yyyy-mm-dd');
-						return $this->custom_date_select($fname, $curval, $opts, $required);
-					}
-
-					if (THEME_LEGACY === true)
+					if(THEME_LEGACY === true)
 					{
 					    if(empty($opts['placeholder']))
                         {
@@ -1457,7 +1451,7 @@ class e107_user_extended
                     {
                         $opts['required'] = true;
                     }
-  
+
 					return e107::getForm()->datepicker($fname,$curval,$opts);
 					break;
 
@@ -1722,8 +1716,9 @@ class e107_user_extended
 			$field_name = 'user_'.$field_name;
 		}
 
-		// $field_name is an SQL identifier (column); reject anything outside a strict identifier allowlist.
-		if(!preg_match('/^[A-Za-z0-9_]+$/', (string) $field_name))
+		// $field_name is used unquoted as a column identifier; reject anything that
+		// is not a plain identifier to prevent SQL injection via the column name.
+		if(!preg_match('/^[A-Za-z0-9_]+$/D', (string) $field_name))
 		{
 			return false;
 		}
@@ -1906,16 +1901,14 @@ class e107_user_extended
 					return null;
 				}
 
-				// $tmp[0..2] are table/column identifiers from the field's db_lookup config; validate them.
-				if(!preg_match('/^[A-Za-z0-9_]+$/', (string) $tmp[0])
-					|| !preg_match('/^[A-Za-z0-9_]+$/', (string) $tmp[1])
-					|| !preg_match('/^[A-Za-z0-9_]+$/', (string) $tmp[2]))
-				{
-					return null;
-				}
-
 				$sql_ue = e107::getDb('euf_db');            // Use our own DB object to avoid conflicts
-				if($sql_ue->select($tmp[0], "{$tmp[1]}, {$tmp[2]}", "{$tmp[1]} = '".$sql_ue->escape($value)."'"))
+
+				// $tmp[0..2] are table/column identifiers from the field config; validate
+				// them and bind $value so it cannot break out of the WHERE clause.
+				if(preg_match('/^[A-Za-z0-9_]+$/D', (string) $tmp[0])
+					&& preg_match('/^[A-Za-z0-9_]+$/D', (string) $tmp[1])
+					&& preg_match('/^[A-Za-z0-9_]+$/D', (string) $tmp[2])
+					&& $sql_ue->execute("SELECT `{$tmp[1]}`, `{$tmp[2]}` FROM `#{$tmp[0]}` WHERE `{$tmp[1]}` = :value", array('value' => $value)))
 				{
 
 					$row = $sql_ue->fetch();
@@ -2055,6 +2048,8 @@ function custom_date_select($name, $curval = '', $opts = array(), $required = ""
 
     return $output;
 }
- 
- 
+
+
 }
+
+

@@ -31,7 +31,7 @@ class e_jsmanager
 	 */
 	protected $_cache_list = array();
 
-
+	protected $_js_defer = false;
 
 	protected $_core_prefs = array();
 
@@ -189,7 +189,6 @@ class e_jsmanager
 
 	private $_favicon = null;
 
-
 	/**
 	 * Constructor
 	 *
@@ -198,6 +197,7 @@ class e_jsmanager
 	 */
 	protected function __construct()
 	{
+		$this->_js_defer = (bool) deftrue('e_JS_DEFER'); // Experimental 2.4
 	}
 
 	/**
@@ -336,7 +336,7 @@ class e_jsmanager
 	 * Add Plugin CSS file(s) for inclusion in site header
 	 *
 	 * @param string $plugname
-	 * @param string|array $file_path relative to e107_plugins/myplug/ folder or array in format 'path - media'
+	 * @param string|array $file_path relative to eplugins/myplug/ folder or array in format 'path - media'
 	 * @param string $media any valid media attribute string - http://www.w3schools.com/TAGS/att_link_media.asp
 	 * @return e_jsmanager
 	 */
@@ -363,7 +363,7 @@ class e_jsmanager
 	/**
 	 * Add Theme CSS file(s) for inclusion in site header
 	 *
-	 * @param string|array $file_path relative to e107_themes/current_theme/ folder
+	 * @param string|array $file_path relative to ethemes/current_theme/ folder
 	 * @param string $media any valid media attribute string - http://www.w3schools.com/TAGS/att_link_media.asp
 	 * @return e_jsmanager
 	 */
@@ -430,7 +430,7 @@ class e_jsmanager
 	/**
 	 * Add Core JS library file(s) for inclusion from e_jslib routine
 	 *
-	 * @param string|array $file_path relative to e107_files/jslib/ folder or array in format 'path - runtime location'
+	 * @param string|array $file_path relative to efiles/jslib/ folder or array in format 'path - runtime location'
 	 * @param string $runtime_location  admin|front|all - where should be JS used
 	 * @return e_jsmanager
 	 */
@@ -444,7 +444,7 @@ class e_jsmanager
 	 * Add Plugin JS library file(s) for inclusion from e_jslib routine
 	 *
 	 * @param string $plugname
-	 * @param string|array $file_path relative to e107_plugins/myplug/ folder or array in format 'path - runtime location'
+	 * @param string|array $file_path relative to eplugins/myplug/ folder or array in format 'path - runtime location'
 	 * @param string $runtime_location admin|front|all - where should be JS used
 	 * @return e_jsmanager
 	 */
@@ -465,7 +465,7 @@ class e_jsmanager
 	/**
 	 * Add Theme JS library file(s) for inclusion from e_jslib routine
 	 *
-	 * @param string|array $file_path relative to e107_themes/current_theme/ folder or array in format 'path - runtime location'
+	 * @param string|array $file_path relative to ethemes/current_theme/ folder or array in format 'path - runtime location'
 	 * @param string $runtime_location admin|front|all - where should be JS used
 	 * @return e_jsmanager
 	 */
@@ -480,21 +480,21 @@ class e_jsmanager
 	 * already loaded by e_jslib routine. This should avoid dependency problems.
 	 * Extremely useful for shortcodes and menus.
 	 *
-	 * @param string $file_path relative to e107_files/jslib/ folder
+	 * @param string $file_path relative to efiles/jslib/ folder
 	 * @param int $zone 1-5 (see header.php)
 	 * @return e_jsmanager
 	 */
-	public function requireCoreLib($file_path, $zone = 2)
+	public function requireCoreLib($file_path, $zone = 2, $opts=[])
 	{
 		if(is_array($file_path))
 		{
 			foreach ($file_path as $fpath => $z)
 			{
-				$this->tryHeaderFile('{e_WEB_JS}'.trim($fpath, '/'), $z);
+				$this->tryHeaderFile('{e_WEB_JS}'.trim($fpath, '/'), $z, $opts);
 			}
 			return $this;
 		}
-		$this->tryHeaderFile('{e_WEB_JS}'.trim($file_path, '/'), $zone);
+		$this->tryHeaderFile('{e_WEB_JS}'.trim($file_path, '/'), $zone, $opts);
 		return $this;
 	}
 
@@ -503,21 +503,21 @@ class e_jsmanager
 	 * already loaded by e_jslib routine. This should avoid dependency problems.
 	 *
 	 * @param string $plugname
-	 * @param string $file_path relative to e107_plugins/myplug/ folder
+	 * @param string $file_path relative to eplugins/myplug/ folder
 	 * @param int $zone 1-5 (see header.php)
 	 * @return e_jsmanager
 	 */
-	public function requirePluginLib($plugname, $file_path, $zone = 5)
+	public function requirePluginLib($plugname, $file_path, $zone = 5, $opts=[])
 	{
 		if(is_array($file_path))
 		{
 			foreach ($file_path as $fpath => $z)
 			{
-				$this->tryHeaderFile('{e_PLUGIN}'.$plugname.'/'.trim($fpath, '/'), $z);
+				$this->tryHeaderFile('{e_PLUGIN}'.$plugname.'/'.trim($fpath, '/'), $z, $opts);
 			}
 			return $this;
 		}
-		$this->tryHeaderFile('{e_PLUGIN}'.$plugname.'/'.trim($file_path, '/'), $zone);
+		$this->tryHeaderFile('{e_PLUGIN}'.$plugname.'/'.trim($file_path, '/'), $zone, $opts);
 		return $this;
 	}
 
@@ -551,9 +551,9 @@ class e_jsmanager
 	 * @param int $zone 1-5 (see header.php)
 	 * @return e_jsmanager
 	 */
-	public function headerCore($file_path, $zone = 2, $pre = '', $post = '')
+	public function headerCore($file_path, $zone = 2, $pre = '', $post = '', $opts=[])
 	{
-		$this->headerFile('{e_WEB_JS}'.trim($file_path, '/'), $zone, $pre, $post);
+		$this->headerFile('{e_WEB_JS}'.trim($file_path, '/'), $zone, $pre, $post, $opts);
 		return $this;
 	}
 
@@ -564,9 +564,9 @@ class e_jsmanager
 	 * @param int $zone 1-5 (see header.php)
 	 * @return e_jsmanager
 	 */
-	public function headerTheme($file_path, $zone = 5, $pre = '', $post = '')
+	public function headerTheme($file_path, $zone = 5, $pre = '', $post = '', $opts=[])
 	{
-		$this->headerFile(THEME.trim($file_path, '/'), $zone, $pre, $post);
+		$this->headerFile(THEME.trim($file_path, '/'), $zone, $pre, $post, $opts);
 		return $this;
 	}
 
@@ -593,9 +593,9 @@ class e_jsmanager
 	 * @param string $post
 	 * @return e_jsmanager
 	 */
-	public function headerPlugin($plugname, $file_path, $pre, $post)
+	public function headerPlugin($plugname, $file_path, $pre, $post, $opts=[])
 	{
-		$this->headerFile('{e_PLUGIN}'.$plugname.'/'.trim($file_path, '/'), 2, $pre, $post);	// Zone 2 - after libraries
+		$this->headerFile('{e_PLUGIN}'.$plugname.'/'.trim($file_path, '/'), 2, $pre, $post, $opts);	// Zone 2 - after libraries
 		return $this;
 	}
 
@@ -607,11 +607,11 @@ class e_jsmanager
 	 * @param int $zone 1-5 (see header.php and footer.php)
 	 * @return e_jsmanager
 	 */
-	public function tryHeaderFile($file_path, $zone = 5)
+	public function tryHeaderFile($file_path, $zone = 5, $opts=[])
 	{
 		if(!defined('HEADER_INIT'))
 		{
-			$this->headerFile($file_path, $zone);
+			$this->headerFile($file_path, $zone, null, null, $opts);
 			return $this;
 		}
 
@@ -1242,13 +1242,21 @@ class e_jsmanager
 		switch($mod)
 		{
 			case 'settings':
-				//echo "<script src='" . e_WEB_ABS . "js/core/settings.jquery.php' defer></script>\n";
-				$tp = e107::getParser();
-				$json = $tp->toJSON($this->_e_js_settings);
-				echo "<script>\n";
-				echo "var e107 = e107 || {'settings': {}, 'behaviors': {}};\n";
-				echo "jQuery.extend(e107.settings, " . $json . ");\n";
-				echo "</script>\n";
+
+
+				if($this->_js_defer && !$this->isInAdmin())
+				{
+					echo "<script src='".e_WEB_ABS."js/core/settings.jquery.php' defer></script>\n";
+				}
+				else
+				{
+					$tp = e107::getParser();
+					$json = $tp->toJSON($this->_e_js_settings);
+					echo "<script>\n";
+					echo "var e107 = e107 || {'settings': {}, 'behaviors': {}};\n";
+					echo "jQuery.extend(e107.settings, " . $json . ");\n";
+					echo "</script>\n";
+				}
 			break;
 
 			case 'framework': // CDN frameworks - rendered before consolidation script (if enabled)
@@ -1385,7 +1393,7 @@ class e_jsmanager
 			break;
 		}
 
-		if ($return)
+		if($return)
 		{
 			return ob_get_clean();
 		}
@@ -1477,16 +1485,16 @@ class e_jsmanager
 					if(strpos($path, 'http') === 0 || strpos($path, '//') === 0) continue; // not allowed
 					
 					$path = explode($this->_sep, $path, 3);
-					$pre = varset($path[1], '');
+					$pre = varset($path[1]);
 					if($pre) $pre .= "\n";
-					$post = varset($path[2], '');
+					$post = varset($path[2]);
 					if($post) $post = "\n".$post;
 					$path = $path[0];
 					
 					$path = $tp->replaceConstants($path, 'abs').'?external=1'; // &amp;'.$this->getCacheId();
 					$path = $this->url($path);
-
-					echo $pre.'<script src="'.$path.'"></script>'.$post;
+					$defer = ($this->_js_defer && !$this->isInAdmin()) ? ' defer' : '';
+					echo $pre.'<script src="'.$path.'"'.$defer.'></script>'.$post;
 					echo "\n";
 					continue;
 				}
@@ -1585,8 +1593,8 @@ class e_jsmanager
 					{
 						continue;
 					}
-
-					echo $pre.'<script src="'.$path.'"'.$inline.'></script>'.$post;
+					$defer = ($this->_js_defer && !$this->isInAdmin() && strpos($inline,'defer')===false) ? ' defer' : '';
+					echo $pre.'<script src="'.$path.'"'.$inline.$defer.'></script>'.$post;
 					echo "\n";
 					continue;
 				}
@@ -1761,7 +1769,8 @@ class e_jsmanager
 
 			if($type == 'js')
 			{
-				echo "<script src='".$this->url(e_WEB_ABS."cache/".$fileName,'js',false)."'></script>\n\n";
+				$deferCache = ($this->_js_defer && !$this->isInAdmin()) ? 'defer' : '';
+				echo "<script src='".$this->url(e_WEB_ABS."cache/".$fileName,'js',false)."' $deferCache></script>\n\n";
 			}
 			else
 			{
@@ -1867,7 +1876,7 @@ class e_jsmanager
 	            $parts = array_values($parts);
 	            $i -= 2;
 	        }
-			elseif (isset($parts[$i]) && ($parts[$i] === "."))   // resolve .
+	        elseif (isset($parts[$i]) && ($parts[$i] === "."))   // resolve .
 	        {
 	            unset($parts[$i]);
 	            $parts = array_values($parts);
@@ -1981,7 +1990,9 @@ class e_jsmanager
 				}
 				echo '<script>';
 				echo "\n//<![CDATA[\n";
+				echo ($this->_js_defer && !$this->isInAdmin()) ? "window.onload = function(){\n" : '';
 				echo implode("\n\n", $content_array);
+				echo ($this->_js_defer && !$this->isInAdmin()) ? "};\n" : '';
 				echo "\n//]]>\n";
 				echo '</script>';
 				echo "\n";
@@ -2055,6 +2066,12 @@ class e_jsmanager
 	{
 		return ($this->isInAdmin() ? 'admin' : 'front');
 	}
+
+	public function getSettings()
+	{
+		return $this->_e_js_settings;
+	}
+
 
 	/**
 	 * Get current theme name
@@ -2271,45 +2288,45 @@ class e_jsmanager
 		$tp = e107::getParser();
 		$ret = '';
 
-		if (!empty($this->_favicon))
+		if(!empty($this->_favicon))
 		{
-			$iconSizes = [16 => 'icon', 32 => 'icon', 48 => 'icon', 192 => 'icon', 167 => 'apple-touch-icon', 180 => 'apple-touch-icon'];
+			$iconSizes = [16 => 'icon',32 => 'icon',48 => 'icon',192 => 'icon',167 => 'apple-touch-icon',180 => 'apple-touch-icon'];
 
-			foreach ($iconSizes as $size => $rel)
+			foreach($iconSizes as $size => $rel)
 			{
-				$sizes = $size . 'x' . $size;
-				$url = $tp->thumbUrl($this->_favicon, ['w' => $size, 'h' => $size, 'crop' => 1]);
-				$ret .= "<link rel='$rel' type='image/png' sizes='$sizes' href='" . $url . "'>\n";
+				$sizes = $size.'x'.$size;
+				$url = $tp->thumbUrl($this->_favicon, ['w'=>$size, 'h'=>$size, 'crop'=>1]);
+				$ret .= "<link rel='$rel' type='image/png' sizes='$sizes' href='".$url."'>\n";
 			}
 
 			return $ret;
 		}
 
-		if (file_exists(e_THEME . $sitetheme . "/favicon.ico"))
+		if(file_exists(e_THEME . $sitetheme . "/favicon.ico"))
 		{
-			$ret = "<link rel='icon' href='" . $tp->staticUrl(e_THEME_ABS . $sitetheme . "/favicon.ico") . "' type='image/x-icon' />\n<link rel='shortcut icon' href='" . e_THEME_ABS . $sitetheme . "/favicon.ico' type='image/xicon' />\n";
+			$ret = "<link rel='icon' href='" . $tp->staticUrl(e_THEME_ABS . $sitetheme . "/favicon.ico")."' type='image/x-icon' />\n<link rel='shortcut icon' href='" . e_THEME_ABS . $sitetheme . "/favicon.ico' type='image/xicon' />\n";
 		}
-		elseif (file_exists(e_MEDIA_ICON . '16x16_favicon.png'))
+		elseif(file_exists(e_MEDIA_ICON.'16x16_favicon.png'))
 		{
-			$iconSizes = [16 => 'icon', 32 => 'icon', 48 => 'icon', 192 => 'icon', 167 => 'apple-touch-icon', 180 => 'apple-touch-icon'];
+			$iconSizes = [16 => 'icon',32 => 'icon',48 => 'icon',192 => 'icon',167 => 'apple-touch-icon',180 => 'apple-touch-icon'];
 
-			foreach ($iconSizes as $size => $rel)
+			foreach($iconSizes as $size => $rel)
 			{
-				$sizes = $size . 'x' . $size;
-				$href = $tp->staticUrl(e_MEDIA_ICON_ABS . $sizes . "_favicon.png");
+				$sizes = $size.'x'.$size;
+				$href = $tp->staticUrl(e_MEDIA_ICON_ABS.$sizes."_favicon.png");
 				$ret .= "<link rel='$rel' type='image/png' sizes='$sizes' href='$href'>\n";
 			}
+
 		}
-		elseif (file_exists(e_BASE . "favicon.ico"))
+		elseif (file_exists(e_BASE."favicon.ico"))
 		{
-			$ret = "<link rel='icon' href='" . $tp->staticUrl(SITEURL . "favicon.ico") . "' type='image/x-icon' />\n<link rel='shortcut icon' href='" . $tp->staticUrl(SITEURL . "favicon.ico") . "' type='image/xicon' />\n";
+			$ret = "<link rel='icon' href='".$tp->staticUrl(SITEURL."favicon.ico")."' type='image/x-icon' />\n<link rel='shortcut icon' href='".$tp->staticUrl(SITEURL."favicon.ico")."' type='image/xicon' />\n";
 		}
 
 
 		return $ret;
+
 	}
-
-
 
 
 

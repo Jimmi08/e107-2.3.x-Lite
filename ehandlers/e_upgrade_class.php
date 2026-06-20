@@ -58,68 +58,68 @@ class e_upgrade
 	 */
 	public function releaseCheck($mode='plugin', $cache=TRUE)
 	{
-		// global $e107cache;
+		global $e107cache;
 
-	    // if(!$this->getOption('releaseUrl'))
-		// {
-	    // 	return;
-		// }
+	    if(!$this->getOption('releaseUrl'))
+		{
+	    	return;
+		}
 
-        // $cacheString = $mode. 'UpdateCheck';
+        $cacheString = $mode. 'UpdateCheck';
 
-		// $e107cache->CachePageMD5 = md5($cacheString.$this->getOption('curFolder').$this->getOption('curVersion', 1.0));
+		$e107cache->CachePageMD5 = md5($cacheString.$this->getOption('curFolder').$this->getOption('curVersion', 1.0));
 
-		// if(($cache==TRUE) && ($cacheData = $e107cache->retrieve($cacheString, 3600, TRUE)))
-		// {
-		// 	$mes = e107::getMessage();
-		// 	$mes->addInfo($cacheData);
-		// 	$e107cache->CachePageMD5  = "";
-		// 	return;
-		// }
+		if(($cache==TRUE) && ($cacheData = $e107cache->retrieve($cacheString, 3600, TRUE)))
+		{
+			$mes = e107::getMessage();
+			$mes->addInfo($cacheData);
+			$e107cache->CachePageMD5  = "";
+			return;
+		}
 
-		// $xml = e107::getXml();
-        // $feed = $this->getOption('releaseUrl');
+		$xml = e107::getXml();
+        $feed = $this->getOption('releaseUrl');
 
-	 	// if(substr($feed,-4) == ".php")
-		// {
-        // 	 $feed .= "?folder=".$this->getOption('curFolder')."&version=".$this->getOption('curVersion');
-		// }
+	 	if(substr($feed,-4) == ".php")
+		{
+        	 $feed .= "?folder=".$this->getOption('curFolder')."&version=".$this->getOption('curVersion');
+		}
 
-		// if($rawData = $xml -> loadXMLfile($feed, TRUE))
-		// {
-	    // 	if(!$rawData[$mode][1])
-		// 	{
-	    //     	$rawData[$mode] = $rawData;
-		// 	}
+		if($rawData = $xml -> loadXMLfile($feed, TRUE))
+		{
+	    	if(!$rawData[$mode][1])
+			{
+	        	$rawData[$mode] = $rawData;
+			}
 
-	    //     $txt = "";
-        //     $lan_text = ($mode == "theme") ? ADLAN_162 : ADLAN_163;
+	        $txt = "";
+            $lan_text = ($mode == "theme") ? ADLAN_162 : ADLAN_163;
 
-	    //     foreach($rawData[$mode] as $val)
-		// 	{
-		// 		$name    	= $val['@attributes']['name'];
-		// 		$folder    	= $val['@attributes']['folder'];
-		// 		$version 	= $val['@attributes']['version'];
-		// 		$url 		= $val['@attributes']['url'];
+	        foreach($rawData[$mode] as $val)
+			{
+				$name    	= $val['@attributes']['name'];
+				$folder    	= $val['@attributes']['folder'];
+				$version 	= $val['@attributes']['version'];
+				$url 		= $val['@attributes']['url'];
 
-	    //         if(($folder == $this->getOption('curFolder'))  && version_compare($version,$this->getOption('curVersion'))==1)
-		// 		{
-	    //          	$txt .= $lan_text." <a href='".$url."'>".$name ." v".$version."</a><br />";
-		// 			break;
-		// 		}
-	    //     }
+	            if(($folder == $this->getOption('curFolder'))  && version_compare($version,$this->getOption('curVersion'))==1)
+				{
+	             	$txt .= $lan_text." <a href='".$url."'>".$name ." v".$version."</a><br />";
+					break;
+				}
+	        }
 
-		// 	if($txt)
-		// 	{
-		// 		$mes->addInfo($txt);
-		// 		if($cache==TRUE)
-		// 		{
-		// 			$e107cache->set($cacheString, $txt, TRUE);
+			if($txt)
+			{
+				$mes->addInfo($txt);
+				if($cache==TRUE)
+				{
+					$e107cache->set($cacheString, $txt, TRUE);
 
-		// 		}
-		// 		$e107cache->CachePageMD5  = "";
-		// 	}
-		// }
+				}
+				$e107cache->CachePageMD5  = "";
+			}
+		}
 
 
 	}

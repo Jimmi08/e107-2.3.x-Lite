@@ -25,6 +25,10 @@
  * Always use $this->getConfig() method to avoid issues pointed above
  */
 
+require_once(__DIR__.'/e_db_interface.php');
+require_once(__DIR__.'/e_db_legacy_trait.php');
+require_once(__DIR__.'/e_db_common_trait.php');
+
 if(defined('MYSQL_LIGHT'))
 {
 	define('E107_DEBUG_LEVEL', 0);
@@ -94,6 +98,10 @@ $db_ConnectionID = NULL;	// Stores ID for the first DB connection used - which s
  */
 class e_db_mysql implements e_db
 {
+
+	use e_db_legacy;
+	use e_db_common;
+
 	// TODO switch to protected vars where needed
 	public      $mySQLserver;
 	public      $mySQLuser;
@@ -132,6 +140,8 @@ class e_db_mysql implements e_db
 
 	private     $debugMode      = false;
 
+	private     $stringifyFetch = false;	// Prepared-statement results carry native types; stringify on fetch for PDO parity.
+
 	/**
 	* Constructor - gets language options from the cookie or session
 	* @access public
@@ -140,12 +150,14 @@ class e_db_mysql implements e_db
 	{
 		e107::getSingleton('e107_traffic')->BumpWho('Create db object', 1);
 
-		$this->mySQLPrefix = MPREFIX;				// Set the default prefix - may be overridden
+		$config = e107::getMySQLConfig();
 
-		if($port = e107::getMySQLConfig('port'))
-		{
-			$this->mySQLport = intval($port);
-		}
+		$this->mySQLserver      = isset($config['mySQLserver']) ? $config['mySQLserver'] : '';
+		$this->mySQLuser        = isset($config['mySQLuser']) ? $config['mySQLuser'] : '';
+		$this->mySQLpassword    = isset($config['mySQLpassword']) ? $config['mySQLpassword'] : '';
+		$this->mySQLdefaultdb   = isset($config['mySQLdefaultdb']) ? $config['mySQLdefaultdb'] : '';
+		$this->mySQLport        = varset($config['port'], 3306);
+		$this->mySQLPrefix      = varset($config['mySQLprefix'], MPREFIX);
 
 		/*$langid = (isset($pref['cookie_name'])) ? 'e107language_'.$pref['cookie_name'] : 'e107language_temp';
 		if (isset($pref['user_tracking']) && ($pref['user_tracking'] == 'session'))
@@ -184,86 +196,6 @@ class e_db_mysql implements e_db
 	}
 
 	/**
-	 * @param $bool
-	 * @return void
-	 */
-	function debugMode($bool)
-	{
-		$this->debugMode = (bool) $bool;
-	}
-
-	/**
-	 * @return mixed
-	 */
-	function getMode()
-	{
-		 $this->gen('SELECT @@sql_mode');
-		 $row = $this->fetch();
-		 return $row['@@sql_mode'];
-	}
-
-	/**
-	 * Connects to mySQL server and selects database - generally not required if your table is in the main DB.<br />
-	 * <br />
-	 * Example using e107 database with variables defined in e107_config.php:<br />
-	 * <code>$sql = new db;
-	 * $sql->db_Connect($mySQLserver, $mySQLuser, $mySQLpassword, $mySQLdefaultdb);</code>
-	 * <br />
-	 * OR to connect an other database:<br />
-	 * <code>$sql = new db;
-	 * $sql->db_Connect('url_server_database', 'user_database', 'password_database', 'name_of_database');</code>
-	 *
-	 * @param string $mySQLserver IP Or hostname of the MySQL server
-	 * @param string $mySQLuser MySQL username
-	 * @param string $mySQLpassword MySQL Password
-	 * @param string $mySQLdefaultdb The database schema to connect to
-	 * @param string $newLink force a new link connection if TRUE. Default FALSE
-	 * @param string $mySQLPrefix Tables prefix. Default to $mySQLPrefix from e107_config.php
-	 * @return null|string error code
-	 */
-	public function db_Connect($mySQLserver, $mySQLuser, $mySQLpassword, $mySQLdefaultdb, $newLink = FALSE, $mySQLPrefix = MPREFIX)
-	{
-		global $db_ConnectionID, $db_defaultPrefix;
-		e107::getSingleton('e107_traffic')->BumpWho('db Connect', 1);
-
-		$this->mySQLserver      = $mySQLserver;
-		$this->mySQLuser        = $mySQLuser;
-		$this->mySQLpassword    = $mySQLpassword;
-		$this->mySQLdefaultdb   = $mySQLdefaultdb;
-		$this->mySQLPrefix      = $mySQLPrefix;
-		$this->mySQLerror       = false;
-
-		if (!$this->mySQLaccess = @mysqli_connect($this->mySQLserver, $this->mySQLuser, $this->mySQLpassword, $newLink))
-		{
-			$this->mySQLlastErrText = mysqli_connect_error();
-			return 'e1';
-		}
-
-		$this->mySqlServerInfo = mysqli_get_server_info($this->mySQLaccess); // We always need this for db_Set_Charset() - so make generally available
-
-		// Set utf8 connection?
-		//@TODO: simplify when yet undiscovered side-effects will be fixed
-		$this->db_Set_Charset();
-		$this->setSQLMode();
-
-		if (!$this->database($this->mySQLdefaultdb))
-		{
-			return 'e2';
-		}
-
-		$this->dbError('dbConnect/SelectDB');
-
-		// Save the connection resource
-		if ($db_ConnectionID == null)
-		{
-			$db_ConnectionID = $this->mySQLaccess;
-		}
-
-		return true;
-	}
-
-
-	/**
 	 * Connect ONLY  - used in v2.x
 	 * @param string $mySQLserver IP Or hostname of the MySQL server
 	 * @param string $mySQLuser MySQL username
@@ -298,7 +230,11 @@ class e_db_mysql implements e_db
 		$this->db_Set_Charset();
 		$this->setSQLMode();
 
-		$db_ConnectionID = $this->mySQLaccess;
+		// Save the connection resource
+		if ($db_ConnectionID == null)
+		{
+			$db_ConnectionID = $this->mySQLaccess;
+		}
 
 		return true;
 	}
@@ -310,7 +246,7 @@ class e_db_mysql implements e_db
 	 */
 	public function getServerInfo()
 	{
-		$this->provide_mySQLaccess();
+		$this->_getMySQLaccess();
 		return $this->mySqlServerInfo;
 	}
 
@@ -342,37 +278,6 @@ class e_db_mysql implements e_db
 		return true;
 	}
 
-
-	/**
-	 * Get system config
-	 * @return e_core_pref
-	 */
-	public function getConfig()
-	{
-		return e107::getConfig('core', false);
-	}
-
-	/**
-	* @return void
-	* @param string $sMarker
-    * @deprecated Use e107::getDebug()->logTime();
-	* @desc Enter description here...
-	* @access private
-	*/
-	function db_Mark_Time($sMarker)
-	{
-		trigger_error('<b>'.__METHOD__.' is deprecated.</b> Use e107::getDebug()->logTime() instead.', E_USER_DEPRECATED); // NO LAN
-
-		if($this->debugMode !== true)
-		{
-			return null;
-		}
-
-		$this->dbg->Mark_Time($sMarker);
-
-	}
-
-
 	/**
 	* @deprecated
 	* @return void
@@ -391,16 +296,30 @@ class e_db_mysql implements e_db
 	* @desc add query to dblog table
 	* @access private
 	*/
-	function db_Write_log($log_type = '', $log_remark = '', $log_query = '')
+	function log($log_type = '', $log_remark = '', $log_query = '')
 	{
-
 		$tp = e107::getParser();
 		list($time_usec, $time_sec) = explode(" ", microtime());
 		$uid = (USER) ? USERID : '0';
 		$userstring = ( USER === true ? USERNAME : "LAN_ANONYMOUS");
-		$ip = e107::getIPHandler()->getIP(FALSE);
+		$ip = e107::getIPHandler()->getIP(false);
 		$qry = $tp->toDB($log_query);
-		$this->insert('dblog', "0, {$time_sec}, {$time_usec}, '{$log_type}', 'DBDEBUG', {$uid}, '{$userstring}', '{$ip}', '', '{$log_remark}', '{$qry}'");
+
+		$insert = array(
+			'dblog_datestamp'   => $time_sec,
+			'dblog_microtime'   => $time_usec,
+			'dblog_type'        => $log_type,
+			'dblog_eventcode'   => 'DBDEBUG',
+			'dblog_user_id'     => $uid,
+			'dblog_user_name'   => $userstring,
+			'dblog_ip'          => $ip,
+			'dblog_caller'      => '',
+			'dblog_title'       => $log_remark,
+			'dblog_remarks'     => is_array($qry) ? e107::serialize($qry) : $qry
+
+		);
+
+		$this->insert('dblog', $insert);
 	}
 
 
@@ -408,6 +327,10 @@ class e_db_mysql implements e_db
 	* This is the 'core' routine which handles much of the interface between other functions and the DB
 	*
 	* If a SELECT query includes SQL_CALC_FOUND_ROWS, the value of FOUND_ROWS() is retrieved and stored in $this->total_results
+	*
+	* The array ['PREPARE' => ..., 'BIND' => ..., 'EXECUTE' => ...] contract is
+	* internal plumbing; new code should call {@see e_db::execute()} instead.
+	*
 	* @param string|array $query
 	* @param mysqli $rli Your own mysqli connection instead of the one in this object
 	* @return boolean|mysqli_result - as mysqli_query() function.
@@ -433,16 +356,25 @@ class e_db_mysql implements e_db
 		}
 		if ($log_type != '')
 		{
-			$this->db_Write_log($log_type, $log_remark, $query);
+			$this->log($log_type, $log_remark, $query);
 		}
 
-		$this->provide_mySQLaccess();
+		$this->_getMySQLaccess();
+
+		$this->stringifyFetch = false;
 
 		$b = microtime();
 
-		$sQryRes = is_null($rli) ? @mysqli_query($this->mySQLaccess, $query) : @mysqli_query($rli, $query);
-		$this->mySQLlastErrNum = mysqli_errno($this->mySQLaccess);
-		$this->mySQLlastErrText = mysqli_error($this->mySQLaccess);
+		if(is_array($query) && !empty($query['PREPARE']))
+		{
+			$sQryRes = $this->_executePrepared($query, $qry_from);
+		}
+		else
+		{
+			$sQryRes = is_null($rli) ? @mysqli_query($this->mySQLaccess, $query) : @mysqli_query($rli, $query);
+			$this->mySQLlastErrNum = mysqli_errno($this->mySQLaccess);
+			$this->mySQLlastErrText = mysqli_error($this->mySQLaccess);
+		}
 
 		$e = microtime();
 
@@ -483,6 +415,13 @@ class e_db_mysql implements e_db
 			if(is_object($db_debug))
 			{
 				$buglink = is_null($rli) ? $this->mySQLaccess : $rli;
+
+				if(is_array($query))
+				{
+					$query['BIND'] = isset($query['BIND']) ? $query['BIND'] : null;
+					$query = "PREPARE: " . $query['PREPARE'] . "<br />BIND:" . print_a($query['BIND'], true);
+				}
+
 				$db_debug->Mark_Query($query, $buglink, $sQryRes, $aTrace, $mytime, $pTable);
 			}
 		}
@@ -491,174 +430,242 @@ class e_db_mysql implements e_db
 	}
 
 	/**
-	 * Query and fetch at once
+	 * Execute the array-form prepared-statement contract on mysqli:
+	 * ['PREPARE' => SQL with :named placeholders,
+	 *  'BIND'    => [name => ['value' => mixed, 'type' => e_db::PARAM_*]],
+	 *  'EXECUTE' => [name => value]]
 	 *
-	 * Examples:
-	 * <code>
-	 * <?php
+	 * Mirrors the e_db_pdo behavior: when 'EXECUTE' is non-empty it takes
+	 * precedence over 'BIND' and every value binds as a string, exactly like
+	 * PDOStatement::execute($input_parameters). Returns the result set for
+	 * 'db_Select' calls, a row/affected count otherwise, false on error.
 	 *
-	 * // Get single value, $multi and indexField are ignored
-	 * $string = e107::getDb()->retrieve('user', 'user_email', 'user_id=1');
-	 *
-	 * // Get single row set, $multi and indexField are ignored
-	 * $array = e107::getDb()->retrieve('user', 'user_email, user_name', 'user_id=1');
-	 *
-	 * // Fetch all, don't append WHERE to the query, index by user_id, noWhere auto detected (string starts with upper case ORDER)
-	 * $array = e107::getDb()->retrieve('user', 'user_id, user_email, user_name', 'ORDER BY user_email LIMIT 0,20', true, 'user_id');
-	 *
-	 * // Same as above but retrieve() is only used to fetch, not useable for single return value
-	 * if(e107::getDb()->select('user', 'user_id, user_email, user_name', 'ORDER BY user_email LIMIT 0,20', true))
-	 * {
-	 *        $array = e107::getDb()->retrieve(null, null, null,  true, 'user_id');
-	 * }
-	 *
-	 * // Using whole query example, in this case default mode is 'one'
-	 * $array = e107::getDb()->retrieve('SELECT
-	 *    p.*, u.user_email, u.user_name FROM `#user` AS u
-	 *    LEFT JOIN `#myplug_table` AS p ON p.myplug_table=u.user_id
-	 *    ORDER BY u.user_email LIMIT 0,20'
-	 * );
-	 *
-	 * // Using whole query example, multi mode - $fields argument mapped to $multi
-	 * $array = e107::getDb()->retrieve('SELECT u.user_email, u.user_name FROM `#user` AS U ORDER BY user_email LIMIT 0,20', true);
-	 *
-	 * // Using whole query example, multi mode with index field
-	 * $array = e107::getDb()->retrieve('SELECT u.user_email, u.user_name FROM `#user` AS U ORDER BY user_email LIMIT 0,20', null, null, true, 'user_id');
-	 * </code>
-	 *
-	 * @param string $table if empty, enter fetch only mode
-	 * @param string $fields comma separated list of fields or * or single field name (get one); if $fields is of type boolean and $where is not found, $fields overrides $multi
-	 * @param string $where WHERE/ORDER/LIMIT etc clause, empty to disable
-	 * @param boolean $multi if true, fetch all (multi mode)
-	 * @param string $indexField field name to be used for indexing when in multi mode
-	 * @param boolean $debug
-	 * @return string|array
+	 * @param array $query
+	 * @param string $qry_from
+	 * @return mysqli_result|int|false
 	 */
-	public function retrieve($table, $fields = null, $where=null, $multi = false, $indexField = null, $debug = false)
+	private function _executePrepared($query, $qry_from)
 	{
-		// fetch mode
-		if(empty($table))
+		if(!function_exists('mysqli_stmt_get_result'))
 		{
-			$ret = array();
-			if(!$multi) return $this->fetch();
+			$this->mySQLlastErrNum = -1;
+			$this->mySQLlastErrText = 'Prepared statements on the mysqli backend require the mysqlnd driver (mysqli_stmt_get_result() is missing)';
+			return false;
+		}
 
-			while($row = $this->fetch())
+		list($sql, $order) = $this->_compileNamedQuery($query['PREPARE']);
+
+		$bind = !empty($query['BIND']) ? $query['BIND'] : array();
+		$execute = !empty($query['EXECUTE']) ? $query['EXECUTE'] : array();
+		$useExecute = !empty($execute);
+
+		$stmt = mysqli_prepare($this->mySQLaccess, $sql);
+
+		if($stmt === false)
+		{
+			$this->mySQLlastErrNum = mysqli_errno($this->mySQLaccess);
+			$this->mySQLlastErrText = mysqli_error($this->mySQLaccess);
+			return false;
+		}
+
+		$types = '';
+		$values = array();
+
+		foreach($order as $i => $name)
+		{
+			if($useExecute)
 			{
-				if(null !== $indexField) $ret[$row[$indexField]] = $row;
-				else $ret[] = $row;
+				if(!array_key_exists($name, $execute))
+				{
+					$this->mySQLlastErrNum = 2031; // CR_NO_DATA
+					$this->mySQLlastErrText = 'No value supplied for placeholder :'.$name;
+					mysqli_stmt_close($stmt);
+					return false;
+				}
+				$types .= 's'; // PDOStatement::execute() binds every input parameter as PARAM_STR
+				$values[$i] = $execute[$name];
+				continue;
 			}
-			return $ret;
-		}
 
-		// detect mode
-		$mode = 'one';
-		if($table && !$where && is_bool($fields))
-		{
-			// table is the query, fields used for multi
-			if($fields) $mode = 'multi';
-			else $mode = 'single';
-			$fields = null;
-		}
-		elseif($fields && '*' !== $fields && strpos($fields, ',') === false && $where)
-		{
-			$mode = 'single';
-		}
-		if($multi)
-		{
-			$mode = 'multi';
-		}
-
-		// detect query type
-		$select = true;
-		$noWhere = false;
-		if(!$fields && !$where)
-		{
-			// gen()
-			$select = false;
-			if($mode == 'one' && !preg_match('/[,*]+[\s\S]*FROM/im',$table)) // if a comma or astericks is found before "FROM" then leave it in 'one' row mode.
+			if(!array_key_exists($name, $bind))
 			{
-			    $mode = 'single';
+				$this->mySQLlastErrNum = 2031; // CR_NO_DATA
+				$this->mySQLlastErrText = 'No value supplied for placeholder :'.$name;
+				mysqli_stmt_close($stmt);
+				return false;
+			}
+
+			$type = isset($bind[$name]['type']) ? (int) $bind[$name]['type'] : e_db::PARAM_STR;
+			$value = isset($bind[$name]['value']) ? $bind[$name]['value'] : null;
+
+			switch($type)
+			{
+				case e_db::PARAM_INT:
+					$types .= 'i';
+					$values[$i] = $value;
+					break;
+
+				case e_db::PARAM_BOOL:
+					$types .= 'i';
+					$values[$i] = (int) $value;
+					break;
+
+				case e_db::PARAM_NULL:
+					$types .= 's';
+					$values[$i] = null;
+					break;
+
+				case e_db::PARAM_LOB: // 's' is binary-safe; 'b' would require mysqli_stmt_send_long_data()
+				case e_db::PARAM_STR:
+				default:
+					$types .= 's';
+					$values[$i] = $value;
+					break;
 			}
 		}
-		// auto detect noWhere - if where string starts with upper case LATIN word
-		elseif(!$where || preg_match('/^[A-Z]+\S.*$/', trim($where)))
+
+		if($types !== '')
 		{
-			// FIXME - move auto detect to select()?
-			$noWhere = true;
+			$params = array($types);
+			foreach(array_keys($values) as $i)
+			{
+				$params[] = &$values[$i];
+			}
+
+			if(!call_user_func_array(array($stmt, 'bind_param'), $params))
+			{
+				$this->mySQLlastErrNum = mysqli_stmt_errno($stmt);
+				$this->mySQLlastErrText = mysqli_stmt_error($stmt);
+				mysqli_stmt_close($stmt);
+				return false;
+			}
 		}
 
-		// execute & fetch
-		switch ($mode)
+		if(!mysqli_stmt_execute($stmt))
 		{
-			case 'single':
-				if($select && !$this->select($table, $fields, $where, $noWhere, $debug))
-				{
-					return null;
-				}
-				elseif(!$select && !$this->gen($table, $debug))
-				{
-					return null;
-				}
-				$rows = $this->fetch();
-				return array_shift($rows);
-			break;
-
-			case 'one':
-				if($select && !$this->select($table, $fields, $where, $noWhere, $debug))
-				{
-					return array();
-				}
-				elseif(!$select && !$this->gen($table, $debug))
-				{
-					return array();
-				}
-				return $this->fetch();
-			break;
-
-			case 'multi':
-				if($select && !$this->select($table, $fields, $where, $noWhere, $debug))
-				{
-					return array();
-				}
-				elseif(!$select && !$this->gen($table, $debug))
-				{
-					return array();
-				}
-				$ret = array();
-				while($row = $this->fetch())
-				{
-					if(null !== $indexField) $ret[$row[$indexField]] = $row;
-					else $ret[] = $row;
-				}
-				return $ret;
-			break;
-
+			$this->mySQLlastErrNum = mysqli_stmt_errno($stmt);
+			$this->mySQLlastErrText = mysqli_stmt_error($stmt);
+			mysqli_stmt_close($stmt);
+			return false;
 		}
+
+		$this->mySQLlastErrNum = 0;
+		$this->mySQLlastErrText = '';
+
+		$result = mysqli_stmt_get_result($stmt); // buffered; survives closing the statement
+		$affected = mysqli_stmt_affected_rows($stmt);
+		mysqli_stmt_close($stmt);
+
+		if($result instanceof mysqli_result)
+		{
+			$this->stringifyFetch = true;
+
+			// Match e_db_pdo: 'db_Select' callers receive the result set itself,
+			// others receive a count like PDOStatement::rowCount().
+			return ($qry_from === 'db_Select') ? $result : mysqli_num_rows($result);
+		}
+
+		return (int) $affected; // no result set: affected rows, like PDOStatement::rowCount()
 	}
 
 	/**
-	* Perform a mysqli_query() using the arguments suplied by calling db::db_Query()<br />
-	* <br />
-	* If you need more requests think to call the class.<br />
-	* <br />
-	* Example using a unique connection to database:<br />
-	* <code>e107::getDb()->select("comments", "*", "comment_item_id = '$id' AND comment_type = '1' ORDER BY comment_datestamp");</code><br />
-	* <br />
-	* OR as second connection:<br />
-	* <code>
-	* e107::getDb('sql2')->select("chatbox", "*", "ORDER BY cb_datestamp DESC LIMIT $from, ".$view, true);</code>
-	*
-	* @return int Number of rows or false on error
-	*/
+	 * Compile a query with :named placeholders into positional ? placeholders.
+	 *
+	 * Quote-aware: single-quoted strings, double-quoted strings, backticked
+	 * identifiers, comments and :: are consumed first, so tokens that merely
+	 * look like placeholders inside them are never rewritten.
+	 *
+	 * @param string $sql
+	 * @return array [compiled SQL, placeholder names in positional order]
+	 */
+	private function _compileNamedQuery($sql)
+	{
+		$order = array();
+
+		$compiled = preg_replace_callback(
+			'/\'(?:[^\'\\\\]|\\\\.)*\'|"(?:[^"\\\\]|\\\\.)*"|`[^`]*`|\/\*[\s\S]*?\*\/|--[^\r\n]*|::|:([A-Za-z0-9_]+)/',
+			function ($matches) use (&$order)
+			{
+				if(!isset($matches[1]) || $matches[1] === '')
+				{
+					return $matches[0];
+				}
+				$order[] = $matches[1];
+				return '?';
+			},
+			$sql
+		);
+
+		return array($compiled, $order);
+	}
+
+	/**
+	 * Cast native int/float values to strings, so prepared-statement results
+	 * (mysqlnd returns native types) match plain mysqli_query() results and
+	 * the PDO::ATTR_STRINGIFY_FETCHES behavior of e_db_pdo.
+	 *
+	 * @param array $row
+	 * @return array
+	 */
+	private function _stringifyRow($row)
+	{
+		foreach($row as $key => $value)
+		{
+			if(is_int($value) || is_float($value))
+			{
+				$row[$key] = (string) $value;
+			}
+		}
+
+		return $row;
+	}
+
+	/**
+	 * Documented at {@see e_db::select()}.
+	 *
+	 * @return int Number of rows or false on error
+	 * @deprecated v2.4.0 Prefer the query builder; see {@see e_db::select()}.
+	 */
 	public function select($table, $fields = '*', $arg = '', $noWhere = false, $debug = FALSE, $log_type = '', $log_remark = '')
 	{
 		global $db_mySQLQueryCount;
+
+		// Fail closed if the table name is not a plain identifier - it is always
+		// interpolated unquoted into the FROM clause below.
+		if($this->_safeIdentifier($table) === false)
+		{
+			$this->dbError('select() invalid table identifier');
+			return false;
+		}
 
 		$table = $this->hasLanguage($table);
 
 		$this->mySQLcurTable = $table;
 
-		if ($arg != '' && ($noWhere === false || $noWhere === 'default'))  // 'default' for BC. 
+		// e107 v2.2 PDO bind params.
+		if(!empty($arg) && is_array($noWhere))
+		{
+
+			$query = array(
+				'PREPARE'   => 'SELECT '.$fields.' FROM '.$this->mySQLPrefix.$table.' WHERE '.$arg,
+				'EXECUTE'   => $noWhere
+			);
+
+			if ($this->mySQLresult = $this->db_Query($query, null, 'db_Select', $debug, $log_type, $log_remark))
+			{
+				$this->dbError('dbQuery');
+				return $this->rowCount();
+			}
+			else
+			{
+				$this->dbError('select() with prepare/execute');
+				return false;
+			}
+
+		}
+
+
+		if ($arg != '' && ($noWhere === false || $noWhere === 'default'))  // 'default' for BC.
 		{
 			if ($this->mySQLresult = $this->db_Query('SELECT '.$fields.' FROM '.$this->mySQLPrefix.$table.' WHERE '.$arg, NULL, 'db_Select', $debug, $log_type, $log_remark))
 			{
@@ -700,213 +707,17 @@ class e_db_mysql implements e_db
 	}
 
 	/**
-	 * select() alias
-	 *
-	 * @deprecated
-	 */
-	public function db_Select($table, $fields = '*', $arg = '', $mode = 'default', $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-		trigger_error('<b>'.__METHOD__.' is deprecated.</b> Use e107::getDb()->select() instead.', E_USER_DEPRECATED); // NO LAN
-
-		return $this->select($table, $fields, $arg, $mode !== 'default', $debug, $log_type, $log_remark);
-	}
-
-	/**
-	 * @param string $tableName - Name of table to access, without any language or general DB prefix
-	 * @param        $arg
-	 * @param bool   $debug
-	 * @param string $log_type
-	 * @param string $log_remark
-	 * @return int|bool Last insert ID or false on error. When using '_DUPLICATE_KEY_UPDATE' return ID, true on update, 0 on no change and false on error.
-	 * @desc Insert a row into the table<br />
-	 * <br />
-	 * Example:<br />
-	 * <code>e107::getDb()->insert("links", "0, 'News', 'news.php', '', '', 1, 0, 0, 0");</code>
-	 *
-	 * @access public
-	 */
-	function insert($tableName, $arg, $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-		$table = $this->hasLanguage($tableName);
-		$this->mySQLcurTable = $table;
-		$REPLACE = false; // kill any PHP notices
-		$DUPEKEY_UPDATE = false;
-		$IGNORE = '';
-
-		if(is_array($arg))
-		{
-			if(isset($arg['WHERE'])) // use same array for update and insert.
-			{
-				unset($arg['WHERE']);
-			}
-
-			if(isset($arg['_REPLACE']))
-			{
-				$REPLACE = TRUE;
-				unset($arg['_REPLACE']);
-			}
-
-			if(isset($arg['_DUPLICATE_KEY_UPDATE']))
-			{
-				$DUPEKEY_UPDATE = true;
-				unset($arg['_DUPLICATE_KEY_UPDATE']);
-			}
-
-			if(isset($arg['_IGNORE']))
-			{
-				$IGNORE = ' IGNORE';
-				unset($arg['_IGNORE']);
-			}
-
-			if(!isset($arg['_FIELD_TYPES']) && !isset($arg['data']))
-			{
-		   	//Convert data if not using 'new' format
-				$_tmp = array();
-				$_tmp['data'] = $arg;
-				$arg = $_tmp;
-				unset($_tmp);
-			}
-
-			if(!isset($arg['data'])) { return false; }
-
-
-			// See if we need to auto-add field types array
-			if(!isset($arg['_FIELD_TYPES']))
-			{
-				$fieldDefs = $this->getFieldDefs($tableName);
-				if (is_array($fieldDefs)) $arg = array_merge($arg, $fieldDefs);
-			}
-
-			$argUpdate = $arg;  // used when DUPLICATE_KEY_UPDATE is active;
-
-
-			// Handle 'NOT NULL' fields without a default value
-			if (isset($arg['_NOTNULL']))
-			{
-				foreach ($arg['_NOTNULL'] as $f => $v)
-				{
-					if (!isset($arg['data'][$f]))
-					{
-						$arg['data'][$f] = $v;
-					}
-				}
-			}
-
-
-			$fieldTypes = $this->_getTypes($arg);
-			$keyList= '`'.implode('`,`', array_keys($arg['data'])).'`';
-			$tmp = array();
-
-			foreach($arg['data'] as $fk => $fv)
-			{
-				$tmp[] = $this->_getFieldValue($fk, $fv, $fieldTypes);
-			}
-
-			$valList= implode(', ', $tmp);
-
-
-			unset($tmp);
-
-
-
-			if($REPLACE === false)
-			{
-				$query = "INSERT".$IGNORE." INTO ".$this->mySQLPrefix."{$table} ({$keyList}) VALUES ({$valList})";
-
-				if($DUPEKEY_UPDATE === true)
-				{
-					$query .= " ON DUPLICATE KEY UPDATE ";
-					$query .= $this->_prepareUpdateArg($tableName, $argUpdate);
-				}
-
-			}
-			else
-			{
-				$query = "REPLACE INTO ".$this->mySQLPrefix."{$table} ({$keyList}) VALUES ({$valList})";
-			}
-		}
-		else
-		{
-			$query = 'INSERT INTO '.$this->mySQLPrefix."{$table} VALUES ({$arg})";
-		}
-
-		$this->provide_mySQLaccess();
-
-		$this->mySQLresult = $this->db_Query($query, NULL, 'db_Insert', $debug, $log_type, $log_remark);
-
-		if($DUPEKEY_UPDATE === true)
-		{
-			$result = false; // ie. there was an error.
-
-			$this->mySQLresult = mysqli_affected_rows($this->mySQLaccess);
-
-			if($this->mySQLresult === 1 ) // insert.
-			{
-				$result = $this->lastInsertId();
-			}
-			elseif($this->mySQLresult === 2 || $this->mySQLresult === true) // updated
-			{
-				$result = true;
-				// reset auto-increment to prevent gaps.
-				$this->db_Query("ALTER TABLE ".$this->mySQLPrefix.$table."  AUTO_INCREMENT=1", NULL, 'db_Insert', $debug, $log_type, $log_remark);
-
-			}
-			elseif($this->mySQLresult === 0) // updated (no change)
-			{
-				$result = 0;
-			}
-
-			$this->dbError('db_Insert');
-			return $result;
-		}
-
-
-		if ($this->mySQLresult)
-		{
-			if(true === $REPLACE)
-			{
-				$tmp = mysqli_affected_rows($this->mySQLaccess);
-				$this->dbError('db_Replace');
-				// $tmp == -1 (error), $tmp == 0 (not modified), $tmp == 1 (added), greater (replaced)
-				if ($tmp == -1) { return false; } // mysqli_affected_rows error
-				return $tmp;
-			}
-
-			$tmp = $this->lastInsertId();
-
-			$this->dbError('db_Insert');
-			return ($tmp) ? $tmp : TRUE; // return true even if table doesn't have auto-increment.
-		}
-		else
-		{
-		//	$this->dbError("db_Insert ({$query})");
-			return FALSE;
-		}
-	}
-
-
-	/**
-	 * @return bool|int|string
+	 * @return bool|int
 	 */
 	public function lastInsertId()
 	{
-		$tmp = mysqli_insert_id($this->mySQLaccess);
+		$tmp = (int) mysqli_insert_id($this->mySQLaccess);
 		return ($tmp) ? $tmp : true; // return true even if table doesn't have auto-increment.
-	}
-
-
-	/**
-	 * Return the total number of results on the last query regardless of the LIMIT value when SELECT SQL_CALC_FOUND_ROWS is used.
-	 * @return bool
-	 */
-	public function foundRows()
-	{
-		return $this->total_results;
 	}
 
 	/**
 	 * @param mysqli_result $result
-	 * @return int|string
+	 * @return int
 	 */
 	public function rowCount($result=null)
 	{
@@ -914,313 +725,21 @@ class e_db_mysql implements e_db
 		{
 			$result = $this->mySQLresult;
 		}
+		if (!$result)
+		{
+			return -1;
+		}
 		if ($result instanceof mysqli_result)
 		{
 			$this->mySQLrows = mysqli_num_rows($result);
 		}
+		elseif ($result === true) // no result set; report affected rows like PDOStatement::rowCount()
+		{
+			$this->mySQLrows = mysqli_affected_rows($this->mySQLaccess);
+		}
 		$this->dbError('db_Rows');
 		return $this->mySQLrows;
 	}
-
-	/**
-	 * hasLanguage() alias
-	 * @deprecated Use hasLanguage($table,$multiple)
-	 */
-	function db_IsLang($table, $multiple=false)
-	{
-		return $this->hasLanguage($table, $multiple);
-	}
-
-
-	/**
-	 * insert() alias
-	 * @deprecated
-	 */
-	function db_Insert($tableName, $arg, $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-		return $this->insert($tableName, $arg, $debug, $log_type, $log_remark);
-	}
-
-	/**
-	 * @param string $table
-	 * @param array  $arg
-	 * @param bool   $debug
-	 * @param string $log_type
-	 * @param string $log_remark
-	 * @return int Last insert ID or false on error
-	 * @desc Insert/REplace a row into the table<br />
-	 * <br />
-	 * Example:<br />
-	 * <code>e107::getDb()->replace("links", $array);</code>
-	 *
-	 * @access public
-	 */
-	function replace($table, $arg, $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-		$arg['_REPLACE'] = TRUE;
-		return $this->insert($table, $arg, $debug, $log_type, $log_remark);
-	}
-
-	/**
-	 * replace() alias
-	 * @deprecated
-	 */
-	function db_Replace($table, $arg, $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-		return $this->replace($table, $arg, $debug, $log_type, $log_remark);
-	}
-
-
-	/**
-	 * @param $tableName
-	 * @param $arg
-	 * @return false|mixed|string
-	 */
-	private function _prepareUpdateArg($tableName, $arg)
-	{
-		if (is_array($arg))  // Remove the need for a separate db_UpdateArray() function.
-	  	{
-			if(!isset($arg['_FIELD_TYPES']) && !isset($arg['data']))
-		   	{
-			   	//Convert data if not using 'new' format
-		   		$_tmp = array();
-		   		if(isset($arg['WHERE']))
-		   		{
-		   			$_tmp['WHERE'] = $arg['WHERE'];
-		   			unset($arg['WHERE']);
-		   		}
-		   		$_tmp['data'] = $arg;
-		   		$arg = $_tmp;
-		   		unset($_tmp);
-		   	}
-
-	   		if(!isset($arg['data'])) { return false; }
-
-			// See if we need to auto-add field types array
-			if(!isset($arg['_FIELD_TYPES']))
-			{
-				$fieldDefs = $this->getFieldDefs($tableName);
-				if (is_array($fieldDefs)) $arg = array_merge($arg, $fieldDefs);
-			}
-
-			$fieldTypes = $this->_getTypes($arg);
-
-
-			$new_data = '';
-			foreach ($arg['data'] as $fn => $fv)
-			{
-				$new_data .= ($new_data ? ', ' : '');
-
-				$new_data .= "`{$fn}`=".$this->_getFieldValue($fn, $fv, $fieldTypes);
-			}
-
-			$arg = $new_data .(isset($arg['WHERE']) ? ' WHERE '. $arg['WHERE'] : '');
-
-		}
-
-		return $arg;
-
-	}
-
-
-	/**
-	* @return int number of affected rows, or false on error
-	* @param string $tableName - Name of table to access, without any language or general DB prefix
-	* @param array|string $arg  (array preferred)
-	* @param bool $debug
-	* @desc Update fields in ONE table of the database corresponding to your $arg variable<br />
-	* <br />
-	* Think to call it if you need to do an update while retrieving data.<br />
-	* <br />
-	* Example using a unique connection to database:<br />
-	* <code>e107::getDb()->update("user", "user_viewed='$u_new' WHERE user_id='".USERID."' ");</code>
-	* <br />
-	* OR as second connection<br />
-	* <code>
-	* e107::getDb('sql2')->update("user", "user_viewed = '$u_new' WHERE user_id = '".USERID."' ");</code><br />
-	*
-	* @access public
-	*/
-	function update($tableName, $arg, $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-		$table = $this->hasLanguage($tableName);
-		$this->mySQLcurTable = $table;
-
-		$this->provide_mySQLaccess();
-
-		$arg = $this->_prepareUpdateArg($tableName, $arg);
-
-		$query = 'UPDATE '.$this->mySQLPrefix.$table.' SET '.$arg;
-
-		$result = $this->mySQLresult = $this->db_Query($query, NULL, 'db_Update', $debug, $log_type, $log_remark);
-
-		if ($result !==false)
-		{
-			$result = mysqli_affected_rows($this->mySQLaccess);
-
-			$this->dbError('db_Update');
-			if ($result === -1) { return false; }	// Error return from mysqli_affected_rows
-			return $result;
-		}
-		else
-		{
-			$this->dbError("db_Update ({$query})");
-			return FALSE;
-		}
-	}
-
-	/**
-	 * update() alias
-	 * @deprecated
-	 */
-	function db_Update($tableName, $arg, $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-		return $this->update($tableName, $arg, $debug, $log_type, $log_remark);
-	}
-
-	/**
-	 * @param $arg
-	 * @return array|mixed
-	 */
-	function _getTypes(&$arg)
-	{
-		if(isset($arg['_FIELD_TYPES']))
-		{
-			if(!isset($arg['_FIELD_TYPES']['_DEFAULT']))
-			{
-				$arg['_FIELD_TYPES']['_DEFAULT'] = 'string';
-			}
-			$fieldTypes = $arg['_FIELD_TYPES'];
-			unset($arg['_FIELD_TYPES']);
-		}
-		else
-		{
-			$fieldTypes = array();
-			$fieldTypes['_DEFAULT'] = 'string';
-		}
-		return $fieldTypes;
-	}
-
-	/**
-	* @param string|array $fieldValue
-	 * @desc Return new field value in proper format<br />
-	*
-	* @access private
-	*@return array|float|int|string
-	*/
-	function _getFieldValue($fieldKey, $fieldValue, &$fieldTypes)
-	{
-		if($fieldValue === '_NULL_') { return 'NULL';}
-		$type = (isset($fieldTypes[$fieldKey]) ? $fieldTypes[$fieldKey] : $fieldTypes['_DEFAULT']);
-
-		switch ($type)
-		{
-			case 'int':
-			case 'integer':
-				return (int) $fieldValue;
-			break;
-
-			case 'cmd':
-				return $fieldValue;
-			break;
-
-			case 'safestr':
-				return "'{$fieldValue}'";
-			break;
-
-			case 'str':
-			case 'string':
-				//return "'{$fieldValue}'";
-				return "'".$this->escape($fieldValue, false)."'";
-			break;
-
-			case 'float':
-				// fix - convert localized float numbers
-				// $larr = localeconv();
-				// $search = array($larr['decimal_point'], $larr['mon_decimal_point'], $larr['thousands_sep'], $larr['mon_thousands_sep'], $larr['currency_symbol'], $larr['int_curr_symbol']);
-				// $replace = array('.', '.', '', '', '', '');
-
-				// return str_replace($search, $replace, floatval($fieldValue));
-
-				return e107::getParser()->toNumber($fieldValue);
-			break;
-
-			case 'null':
-				//return ($fieldValue && $fieldValue !== 'NULL' ? "'{$fieldValue}'" : 'NULL');
-				return ($fieldValue && $fieldValue !== 'NULL' ? "'".$this->escape($fieldValue, false)."'" : 'NULL');
-				break;
-
-			case 'array':
-				if(is_array($fieldValue))
-				{
-					return "'".e107::serialize($fieldValue, true)."'";
-				}
-				return "'". (string) $fieldValue."'";
-			break;
-
-			case 'todb': // using as default causes serious BC issues. 
-				if($fieldValue == '') { return "''"; }
-				return "'".e107::getParser()->toDB($fieldValue)."'";
-			break;
-
-			case 'escape':
-			default:
-				return "'".$this->escape($fieldValue, false)."'";
-			break;
-	  	}
-	}
-
-	/**
-	 *  @DEPRECATED
-	 	Similar to db_Update(), but splits the variables and the 'WHERE' clause.
-		$vars may be an array (fieldname=>newvalue) of fields to be updated, or a simple list.
-		$arg is usually a 'WHERE' clause
-		The way the code is written at the moment, a call to db_Update() with just the first two parameters specified can be
-			converted simply by changing the function name - it will still work.
-		Deprecated routine - use db_Update() with array parameters
-	*/
-	function db_UpdateArray($table, $vars, $arg='', $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-	  $table = $this->hasLanguage($table);
-	  $this->mySQLcurTable = $table;
-
-		$this->provide_mySQLaccess();
-
-	  $new_data = '';
-	  if (is_array($vars))
-	  {
-		$spacer = '';
-		foreach ($vars as $fn => $fv)
-		{
-		  $new_data .= $spacer."`{$fn}`='{$fv}'";
-		  $spacer = ', ';
-		}
-		$vars = '';
-	  }
-	  if ($result = $this->mySQLresult = $this->db_Query('UPDATE '.$this->mySQLPrefix.$table.' SET '.$new_data.$vars.' '.$arg, NULL, 'db_UpdateArray', $debug, $log_type, $log_remark))
-	  {
-		$result = mysqli_affected_rows($this->mySQLaccess);
-		if ($result == -1) return FALSE;	// Error return from mysqli_affected_rows
-		return $result;
-	  }
-	  else
-	  {
-	    $query = 'UPDATE '.$this->mySQLPrefix.$table.' SET '.$new_data.$vars.' '.$arg;
-		$this->dbError("Error in deprecated db_UpdateArray method query:($query)");
-		return FALSE;
-	  }
-	}
-
-	/**
-	 * Truncate a table
-	 * @param string $table - table name without e107 prefix
-	 */
-	function truncate($table=null)
-	{
-		if($table == null){ return null; }
-		return $this->gen("TRUNCATE TABLE ".$this->mySQLPrefix.$table);
-	}
-
 
 	/**
 	 * @param string $type assoc|num|both
@@ -1266,6 +785,10 @@ class e_db_mysql implements e_db
 			e107::getSingleton('e107_traffic')->Bump('db_Fetch', $b);
 			if ($row)
 			{
+				if($this->stringifyFetch)
+				{
+					$row = $this->_stringifyRow($row);
+				}
 				$this->dbError('db_Fetch');
 				return $row;		// Success - return data
 			}
@@ -1284,22 +807,22 @@ class e_db_mysql implements e_db
 	}
 
 	/**
-	 * @param string $table
-	 * @param string $fields
-	 * @param string $arg
-	 * @param bool   $debug
-	 * @param string $log_type
-	 * @param string $log_remark
-	 * @return int number of affected rows or false on error
-	 * @desc Count the number of rows in a select<br />
-	 * <br />
-	 * Example:<br />
-	 * <code>$topics = e107::getDb()->count("forum_thread", "(*)", "thread_forum_id='".$forum_id."' AND thread_parent='0'");</code>
+	 * Documented at {@see e_db::count()}.
 	 *
-	 * @access public
+	 * @return int number of affected rows or false on error
+	 * @deprecated v2.4.0 Prefer the query builder; see {@see e_db::count()}.
 	 */
 	function count($table, $fields = '(*)', $arg = '', $debug = FALSE, $log_type = '', $log_remark = '')
 	{
+		// $fields === 'generic' is the documented raw-SQL escape hatch ($table holds
+		// the full query); every other path interpolates $table unquoted into FROM,
+		// so validate it as a plain identifier and fail closed otherwise.
+		if ($fields != 'generic' && $this->_safeIdentifier($table) === false)
+		{
+			$this->dbError('count() invalid table identifier');
+			return false;
+		}
+
 		$table = $this->hasLanguage($table);
 
 		if ($fields == 'generic')
@@ -1339,15 +862,6 @@ class e_db_mysql implements e_db
 	}
 
 	/**
-	 * @deprecated use count()
-	 */
-	function db_Count($table, $fields = '(*)', $arg = '', $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-		return $this->count($table, $fields, $arg, $debug, $log_type, $log_remark);
-	}
-
-
-	/**
 
 	 * @desc Closes the mySQL server connection.<br />
 	 * <br />
@@ -1362,38 +876,32 @@ class e_db_mysql implements e_db
 	 */
 	function close()
 	{
-		$this->provide_mySQLaccess();
+		$this->_getMySQLaccess();
 		e107::getSingleton('e107_traffic')->BumpWho('db Close', 1);
 		@mysqli_close($this->mySQLaccess);
 	}
 
 
 	/**
-	 * BC Alias of close()
+	 * Documented at {@see e_db::delete()}.
+	 *
+	 * @return int number of affected rows, or false on error
+	 * @deprecated v2.4.0 Prefer the query builder; see {@see e_db::delete()}.
 	 */
-	function db_Close()
-	{
-		$this->close();
-	}
-
-
-	/**
-	* @return int number of affected rows, or false on error
-	* @param string $table
-	* @param string $arg
-	* @desc Delete rows from a table<br />
-	* <br />
-	* Example:
-	* <code>$sql->delete("tmp", "tmp_ip='$ip'");</code><br />
-	* <br />
-	* @access public
-	*/
 	function delete($table, $arg = '', $debug = FALSE, $log_type = '', $log_remark = '')
 	{
+		// Fail closed if the table name is not a plain identifier - it is always
+		// interpolated unquoted into the DELETE statement below.
+		if($this->_safeIdentifier($table) === false)
+		{
+			$this->dbError('delete() invalid table identifier');
+			return false;
+		}
+
 		$table = $this->hasLanguage($table);
 		$this->mySQLcurTable = $table;
 
-		$this->provide_mySQLaccess();
+		$this->_getMySQLaccess();
 
 
 		if (!$arg)
@@ -1428,48 +936,70 @@ class e_db_mysql implements e_db
 	}
 
 	/**
-	 * @deprecated use $sql->delete();
+	 * Execute an SQL statement with bound parameters. The canonical way to run
+	 * SQL against an e107 database; the full contract is documented at {@see e_db::execute()}.
+	 *
+	 * @param string $sql SQL with optional `#table` markers and :named placeholders
+	 * @param array $params name => value, or name => array('value' => mixed, 'type' => e_db::PARAM_*)
+	 * @return int|bool row count for result sets (read rows with {@see e_db::fetch()});
+	 *                  affected rows for DELETE/INSERT/REPLACE/UPDATE;
+	 *                  true for other successful statements; false on error
 	 */
-	function db_Delete($table, $arg = '', $debug = FALSE, $log_type = '', $log_remark = '')
+	public function execute($sql, $params = array())
 	{
-		return $this->delete($table, $arg, $debug, $log_type, $log_remark);
+		$sql = $this->_substituteTableNames($sql);
+
+		if(!empty($params))
+		{
+			$bind = array();
+
+			foreach($params as $name => $value)
+			{
+				$bind[$name] = is_array($value) ? $value : array('value' => $value, 'type' => $this->_detectParamType($value));
+			}
+
+			$query = array('PREPARE' => $sql, 'BIND' => $bind);
+		}
+		else
+		{
+			$query = $sql;
+		}
+
+		$result = $this->mySQLresult = $this->db_Query($query, null, 'db_Select');
+
+		if($result === false)
+		{
+			$this->dbError('execute('.$sql.')');
+			return false;
+		}
+
+		$this->dbError('execute');
+
+		if($result instanceof mysqli_result) // result set; rows readable via fetch()
+		{
+			return $this->rowCount();
+		}
+
+		if(is_int($result)) // prepared statement without a result set: affected rows
+		{
+			return preg_match('#^\s*(DELETE|INSERT|REPLACE|UPDATE)#i', $sql) ? $result : true;
+		}
+
+		// plain query success without a result set
+		if(preg_match('#^\s*(DELETE|INSERT|REPLACE|UPDATE)#i', $sql))
+		{
+			return mysqli_affected_rows($this->mySQLaccess);
+		}
+
+		return true;
 	}
 
-
 	/**
-	* @deprecated
-	* @desc Enter description here...
-	* @access private
-	*/
-	function db_Rows()
-	{
-		return $this->rowCount();
-
-	}
-
-
-	/**
-	* @return void
-	* @param bool $mode
-	* @desc Enter description here...
-	* @access private
-	*/
-	public function db_SetErrorReporting($mode)
-	{
-		$this->mySQLerror = $mode;
-	}
-
-
-	/**
-	* Function to handle any MySQL query
-	* @param string $query - the MySQL query string, where '#' represents the database prefix in front of table names.
-	*		Strongly recommended to enclose all table names in backticks, to minimise the possibility of erroneous substitutions - its
-	*			likely that this will become mandatory at some point
-	* @return boolean | int
-	*		Returns FALSE if there is an error in the query
-	*		Returns TRUE if the query is successful, and it does not return a row count
-	*		Returns the number of rows added/updated/deleted for DELETE, INSERT, REPLACE, or UPDATE
-	*/
+	 * Documented at {@see e_db::gen()}.
+	 *
+	 * @return boolean | int
+	 * @deprecated v2.4.0 Use {@see e_db::execute()} instead; see {@see e_db::gen()}.
+	 */
 	public function gen($query, $debug = FALSE, $log_type = '', $log_remark = '')
 	{
 		global $db_mySQLQueryCount;
@@ -1515,299 +1045,11 @@ class e_db_mysql implements e_db
 	}
 
 	/**
-	 * gen() alias
-	 * @deprecated
-	 */
-	public function db_Select_gen($query, $debug = FALSE, $log_type = '', $log_remark = '')
-	{
-		return $this->gen($query, $debug, $log_type, $log_remark);
-	}
-
-	/**
-	 * @param $matches
-	 * @return string
-	 */
-	function ml_check($matches)
-	{
-		$table = $this->hasLanguage($matches[1]);
-		if($this->tabset == false)
-		{
-			$this->mySQLcurTable = $table;
-			$this->tabset = true;
-		}
-
-		return " ".$this->mySQLPrefix.$table.substr($matches[0],-1);
-	}
-
-	/**
-	* Check for the existence of a matching language table when multi-language tables are active.
-	* @param string|array $table Name of table, without the prefix. or an array of table names.
-	* @access private
-	* @return array|false|string the name of the language table (eg. lan_french_news) or an array of all matching language tables. (with mprefix)
-	*/
-	function hasLanguage($table, $multiple=false)
-	{
-		//When running a multi-language site with english included. English must be the main site language.
-		// WARNING!!! FALSE is critical important - if missed, expect dead loop (prefs are calling db handler as well when loading)
-		// Temporary solution, better one is needed
-		$core_pref = $this->getConfig();
-		//if ((!$this->mySQLlanguage || !$pref['multilanguage'] || $this->mySQLlanguage=='English') && $multiple==FALSE)
-		if ((!$this->mySQLlanguage || !$core_pref->get('multilanguage') || !$core_pref->get('sitelanguage') /*|| $this->mySQLlanguage==$core_pref->get('sitelanguage')*/) && $multiple==FALSE)
-		{
-		  	return $table;
-		}
-
-		$this->provide_mySQLaccess();
-
-		if($multiple == FALSE)
-		{
-			$mltable = "lan_".strtolower($this->mySQLlanguage.'_'.$table);
-			return ($this->isTable($table,$this->mySQLlanguage) ? $mltable : $table);
-		}
-		else // return an array of all matching language tables. eg [french]->e107_lan_news
-		{
-			if(!is_array($table))
-			{
-				$table = array($table);
-			}
-
-			if(!$this->mySQLtableList)
-			{
-				$this->mySQLtableList = $this->db_mySQLtableList();
-			}
-
-			$lanlist = array();
-
-			foreach($this->mySQLtableList as $tab)
-			{
-
- 				if(strpos($tab, "lan_") === 0)
-				{
-					list($tmp,$lng,$tableName) = explode("_",$tab,3);
-
-                    foreach($table as $t)
-					{
-						if($tableName == $t)
-						{
-							$lanlist[$lng][$this->mySQLPrefix.$t] = $this->mySQLPrefix.$tab; // prefix needed.
-						}
-
-					}
-			  	}
-			}
-
-			if(empty($lanlist))
-			{
-				return false;
-			}
-			else
-			{
-				return $lanlist;
-			}
-
-
-		}
-	// -------------------------
-
-
-	}
-
-
-	/**
-	 * Deprecated alias of the rows() function below.
-	 */
-	function db_getList($fields = 'ALL', $amount = FALSE, $maximum = FALSE, $ordermode=FALSE)
-	{
-		return $this->rows($fields, $amount, $maximum, $ordermode);
-	}
-
-
-
-	/**
-	* @return array
-	* @param string fields to retrieve
-	* @desc returns fields as structured array
-	* @access public
-	* @return array rows of the database as an array.
-	*/
-	function rows($fields = 'ALL', $amount = FALSE, $maximum = FALSE, $ordermode=FALSE)
-	{
-		$list = array();
-		$counter = 1;
-		while ($row = $this->fetch())
-		{
-			foreach($row as $key => $value)
-			{
-				if (is_string($key))
-				{
-					if (strtoupper($fields) == 'ALL' || in_array ($key, $fields))
-					{
-						if(!$ordermode)
-						{
-							$list[$counter][$key] = $value;
-						}
-						else
-						{
-							$list[$row[$ordermode]][$key] = $value;
-						}
-					}
-				}
-			}
-			if ($amount && $amount == $counter || ($maximum && $counter > $maximum))
-			{
-				break;
-			}
-			$counter++;
-		}
-		return $list;
-	}
-
-
-
-
-	/**
-	 * Return the maximum value for a given table/field
-	 * @param $table (without the prefix)
-	 * @param $field
-	 * @param string $where (optional)
-	 * @return array|bool|null|string
-	 */
-	public function max($table, $field, $where='')
-	{
-		$qry = "SELECT MAX(".$field.") FROM `".$this->mySQLPrefix.$table."` ";
-
-		if(!empty($where))
-		{
-			$qry .= "WHERE ".$where;
-		}
-
-		return $this->retrieve($qry);
-
-	}
-
-
-	/**
-	 * Return a sorted list of parent/child tree with an optional where clause.
-	 * @param string $table Name of table (without the prefix)
-	 * @param string $parent Name of the parent field
-	 * @param string $pid  Name of the primary id
-	 * @param string $where (Optional ) where condition.
-	 * @param string $order Name of the order field.
-	 * @todo Add extra params to each procedure so we only need 2 of them site-wide.
-	 * @return boolean | int with the addition of  _treesort and _depth fields in the results.
-	 */
-	public function selectTree($table, $parent, $pid, $order, $where=null)
-	{
-
-		if(empty($table) || empty($parent) || empty($pid))
-		{
-			$this->mySQLlastErrText = "missing variables in sql->categories()";
-			return false;
-		}
-
-		$sql = "DROP FUNCTION IF EXISTS `getDepth` ;";
-
-		$this->gen($sql);
-
-		$sql = "
-		CREATE FUNCTION `getDepth` (project_id INT) RETURNS int
-		BEGIN
-		    DECLARE depth INT;
-		    SET depth=1;
-
-		    WHILE project_id > 0 DO
-
-		        SELECT IFNULL(".$parent.",-1)
-		        INTO project_id
-		        FROM ( SELECT ".$parent." FROM `#".$table."` WHERE ".$pid." = project_id) AS t;
-
-		        IF project_id > 0 THEN
-		            SET depth = depth + 1;
-		        END IF;
-
-		    END WHILE;
-
-		    RETURN depth;
-
-		END
-		;
-		";
-
-
-		$this->gen($sql);
-
-		$sql = "DROP FUNCTION IF EXISTS `getTreeSort`;";
-
-		$this->gen($sql);
-
-        $sql = "
-        CREATE FUNCTION getTreeSort(incid INT)
-        RETURNS CHAR(255)
-        BEGIN
-                SET @parentstr = CONVERT(incid, CHAR);
-                SET @parent = -1;
-                label1: WHILE @parent != 0 DO
-                        SET @parent = (SELECT ".$parent." FROM `#".$table."` WHERE ".$pid." =incid);
-                        SET @order = (SELECT ".$order." FROM `#".$table."` WHERE ".$pid." =incid);
-                        SET @parentstr = CONCAT(if(@parent = 0,'',@parent), LPAD(@order,4,0), @parentstr);
-                        SET incid = @parent;
-                END WHILE label1;
-
-                RETURN @parentstr;
-        END
-   ;
-
-        ";
-
-
-        $this->gen($sql);
-
-        $qry =  "SELECT SQL_CALC_FOUND_ROWS *, getTreeSort(".$pid.") as _treesort, getDepth(".$pid.") as _depth FROM `#".$table."` ";
-
-		if($where !== null)
-		{
-			$qry .= " WHERE ".$where;
-		}
-
-
-		$qry .= " ORDER BY _treesort";
-
-
-		return $this->gen($qry);
-
-
-	}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	/**
 	* @return int
 	* @desc returns total number of queries made so far
 	* @access public
 	*/
-	function db_QueryCount()
+	public function queryCount()
 	{
 		global $db_mySQLQueryCount;
 		return $db_mySQLQueryCount;
@@ -1887,31 +1129,25 @@ class e_db_mysql implements e_db
 	 *	@param boolean $retinfo = FALSE - just returns array of field names. TRUE - returns all field info
 	 *	@return array|boolean - FALSE on error, field list array on success
 	 */
-	function db_FieldList($table, $prefix = '', $retinfo = FALSE)
+	public function fields($table, $prefix = '', $retinfo = false)
 	{
-		if(!$this->mySQLdefaultdb)
+		// $table becomes a SQL identifier (cannot be bound); validate it like field().
+		if(($table = $this->_safeIdentifier($table)) === false)
 		{
-			global $mySQLdefaultdb;
-			$this->mySQLdefaultdb = $mySQLdefaultdb;
+			return false;
 		}
 
-		$this->provide_mySQLaccess();
+		$this->_getMySQLaccess();
 
-		if ($prefix == '') $prefix = $this->mySQLPrefix;
-
-		// $prefix.$table is an identifier; reject anything outside a strict identifier allowlist.
-		// A secondary-database prefix may carry a backtick-quoted database qualifier (`db`.prefix),
-		// so allow an optional leading `db`. (or db.) before the identifier characters.
-		if (!preg_match('/^(`?[A-Za-z0-9_]+`?\.)?[A-Za-z0-9_]+$/', (string) ($prefix.$table)))
+		if ($prefix == '')
 		{
-			return false;		// Error return
+			 $prefix = $this->mySQLPrefix;
 		}
 
-		if (false ===  $this->gen('SHOW COLUMNS FROM '.$prefix.$table))
+		if (false === ($result = $this->gen('SHOW COLUMNS FROM '.$prefix.$table)))
 		{
 			return false;		// Error return
 		}
-
 		$ret = array();
 
         if ($this->rowCount() > 0)
@@ -1928,21 +1164,7 @@ class e_db_mysql implements e_db
 				}
 			}
 		}
-
 		return $ret;
-	}
-
-
-	/**
-	 * @param $table
-	 * @param $fieldid
-	 * @param $key
-	 * @param $retinfo
-	 * @return array|bool
-	 */
-	function db_Field($table, $fieldid="", $key="", $retinfo = FALSE)
-	{
-		return $this->field($table,$fieldid,$key, $retinfo);
 	}
 
 	/**
@@ -1954,154 +1176,17 @@ class e_db_mysql implements e_db
 	}
 
 	/**
-	 *	Determines if a plugin field (and key) exist. OR if fieldid is numeric - return the field name in that position.
-	 *
-	 *	@param string $table - table name (no prefix)
-	 *	@param string $fieldid - Numeric offset or field/key name
-	 *	@param string $key - PRIMARY|INDEX|UNIQUE - type of key when searching for key name
-	 *	@param boolean $retinfo = FALSE - just returns true|false. TRUE - returns all field info
-	 *	@return array|boolean - FALSE on error, field information on success
-	 */
-    function field($table,$fieldid="",$key="", $retinfo = FALSE)
-	{
-		if(!$this->mySQLdefaultdb)
-		{
-			global $mySQLdefaultdb;
-			$this->mySQLdefaultdb = $mySQLdefaultdb;
-		}
-		$convert = array("PRIMARY"=>"PRI","INDEX"=>"MUL","UNIQUE"=>"UNI");
-		$key = (isset($convert[$key])) ? $convert[$key] : "OFF";
-
-		$this->provide_mySQLaccess();
-
-        $result = $this->gen("SHOW COLUMNS FROM ".$this->mySQLPrefix.$table);
-        if ($result && ($this->rowCount() > 0))
-		{
-			$c=0;
-			while ($row = $this->fetch())
-			{
-				if(is_numeric($fieldid))
-				{
-					if($c == $fieldid)
-					{
-						if ($retinfo) return $row;
-						return $row['Field']; // field number matches.
-					}
-				}
-				else
-				{	// Check for match of key name - and allow that key might not be used
-					if(($fieldid == $row['Field']) && (($key == "OFF") || ($key == $row['Key'])))
-					{
-						if ($retinfo) return $row;
-						return true;
-					}
-				}
-				$c++;
-			}
-		}
-		return FALSE;
-	}
-
-
-	/**
-	 *	Determines if a table index (key) exist.
-	 *
-	 *	@param string $table - table name (no prefix)
-	 *	@param string $keyname - Name of the key to
-	 *  @param array $fields - OPTIONAL list of fieldnames, the index (key) must contain
-	 *	@param boolean $retinfo = FALSE - just returns true|false. TRUE - returns all key info
-	 *	@return array|boolean - FALSE on error, key information on success
-	 */
-	function index($table, $keyname, $fields=null, $retinfo = FALSE)
-	{
-		if(!$this->mySQLdefaultdb)
-		{
-			global $mySQLdefaultdb;
-			$this->mySQLdefaultdb = $mySQLdefaultdb;
-		}
-
-		$this->provide_mySQLaccess();
-
-		if (!empty($fields) && !is_array($fields))
-		{
-			$fields = explode(',', str_replace(' ', '', $fields));
-		}
-		elseif(empty($fields))
-		{
-			$fields = array();
-		}
-
-		$check_field = count($fields) > 0;
-
-		$info = array();
-		$result = $this->gen("SHOW INDEX FROM ".$this->mySQLPrefix.$table);
-		if ($result && ($this->rowCount() > 0))
-		{
-			$c=0;
-			while ($row = $this->fetch())
-			{
-				// Check for match of key name - and allow that key might not be used
-				if($keyname == $row['Key_name'])
-				{
-					// a key can contain severeal fields which are returned as 1 row per field
-					if (!$check_field)
-					{   // Check only for keyname
-						$info[] = $row;
-					}
-					elseif ($check_field && in_array($row['Column_name'], $fields))
-					{   // Check also for fieldnames
-						$info[] = $row;
-					}
-					$c++;
-				}
-			}
-
-			if (count($info) > 0)
-			{
-				// Kex does not consist of all keys
-				if ($check_field && $c != count($fields)) return false;
-				// Return full information
-				if ($retinfo) return $info;
-				// Return only if index was found
-				return true;
-			}
-		}
-		return FALSE;
-	}
-
-
-	/**
-	 * A pointer to mysqli_real_escape_string() - see https://www.php.net/manual/en/mysqli.real-escape-string.php
+	 * escape() without the deprecation notice, for internal legacy paths.
 	 *
 	 * @param string $data
 	 * @return string
 	 */
-	function escape($data, $strip = true)
+	private function _escape($data)
 	{
-	/*	if ($strip)
-		{
-			$data = strip_if_magic($data);
-		}*/
+		$this->_getMySQLaccess();
 
-		$this->provide_mySQLaccess();
-
-		return mysqli_real_escape_string($this->mySQLaccess, $data);
+		return mysqli_real_escape_string($this->mySQLaccess, (string) $data);
 	}
-
-
-	/**
-	 * Legacy Alias of isTable();
-	 * @deprecated
-	 * @param $table
-	 * @param string $language
-	 * @return bool
-	 */
-	public function db_Table_exists($table,$language='')
-	{
-		return $this->isTable($table, $language);
-	}
-
-
 
 	/**
 	 * Verify whether a table exists, without causing an error
@@ -2130,7 +1215,7 @@ class e_db_mysql implements e_db
 
 			if(!isset($this->mySQLtableListLanguage[$language]))
 			{
-				$this->mySQLtableListLanguage = $this->db_mySQLtableList($language);
+				$this->mySQLtableListLanguage = $this->_getTableList($language);
 			}
 
 			return in_array('lan_'.strtolower($language)."_".$table,$this->mySQLtableListLanguage[$language]);
@@ -2139,7 +1224,7 @@ class e_db_mysql implements e_db
 		{
 			if(!$this->mySQLtableList)
 			{
-				$this->mySQLtableList = $this->db_mySQLtableList();
+				$this->mySQLtableList = $this->_getTableList();
 			}
 
 			return in_array($table,$this->mySQLtableList);
@@ -2147,38 +1232,12 @@ class e_db_mysql implements e_db
 
 	}
 
-
-	/**
-	 * Check if a database table is empty or not.
-	 * @param $table
-	 * @return bool
-	 */
-	function isEmpty($table=null)
-	{
-		if(empty($table))
-		{
-			return false;
-		}
-
-		$result = $this->gen("SELECT NULL FROM ".$this->mySQLPrefix.$table." LIMIT 1");
-
-		if($result === 0)
-		{
-			return true;
-		}
-
-		return false;
-	}
-
-
-
-
 	/**
 	 * Populate mySQLtableList and mySQLtableListLanguage
 	 * TODO - better runtime cache - use e107::getRegistry() && e107::setRegistry()
 	 * @return array
 	 */
-	private function db_mySQLtableList($language='')
+	private function _getTableList($language='')
 	{
 
 		$database = !empty($this->mySQLdefaultdb) ? "FROM  `".$this->mySQLdefaultdb."`" : "";
@@ -2190,12 +1249,24 @@ class e_db_mysql implements e_db
 			$prefix = $tmp[1];
 		}
 
+		// $prefix is interpolated into SHOW TABLES ... LIKE patterns below; escape LIKE
+		// wildcards/metacharacters so a config prefix cannot match unintended tables
+		// or break out of the string literal.
+		$prefixLike = str_replace(array('\\', '%', '_'), array('\\\\', '\\%', '\\_'), $prefix);
+
 		if($language)
 		{
+			// $language is interpolated into the LIKE pattern below; only accept a
+			// plain identifier so it cannot break out of the string literal.
+			if(!preg_match('/^[A-Za-z0-9_]+$/D', (string) $language))
+			{
+				return array();
+			}
+
 			if(!isset($this->mySQLtableListLanguage[$language]))
 			{
 				$table = array();
-				if($res = $this->db_Query("SHOW TABLES ".$database." LIKE '".$prefix."lan_".$this->escape(strtolower($language))."%' "))
+				if($res = $this->db_Query("SHOW TABLES ".$database." LIKE '".$prefixLike."lan_".strtolower($language)."%' "))
 				{
 					while($rows = $this->fetch('num'))
 					{
@@ -2215,7 +1286,7 @@ class e_db_mysql implements e_db
 		{
 			$table = array();
 
-			if($res = $this->db_Query("SHOW TABLES ".$database." LIKE '".$prefix."%' "))
+			if($res = $this->db_Query("SHOW TABLES ".$database." LIKE '".$prefixLike."%' "))
 			{
 				$length = strlen($prefix);
 				while($rows = $this->fetch('num'))
@@ -2232,34 +1303,6 @@ class e_db_mysql implements e_db
 	}
 
 	/**
-	 * @return void
-	 */
-	public function db_ResetTableList()
-	{
-		$this->mySQLtableList = array();
-		$this->mySQLtableListLanguage = array();
-	}
-	/**
-	 * @inheritDoc
-	 */
-	public function resetTableList()
-	{
-		$this->db_ResetTableList();
-	}
-
-	/**
-	 * Legacy Alias of tables
-	 * @deprecated Use $sql->tables($mode) instead.
-	 * @param string $mode
-	 * @return array
-	 */
-	public function db_TableList($mode='all')
-	{
-		return $this->tables($mode);
-	}
-
-
-	/**
 	 * Return a filtered list of DB tables.
 	 * @param object $mode [optional] all|lan|nolan|nologs
 	 * @return array
@@ -2269,7 +1312,7 @@ class e_db_mysql implements e_db
 
 		if(!$this->mySQLtableList)
 		{
-			$this->mySQLtableList = $this->db_mySQLtableList();
+			$this->mySQLtableList = $this->_getTableList();
 		}
 
 		if($mode == 'nologs')
@@ -2315,97 +1358,6 @@ class e_db_mysql implements e_db
 
 	}
 
-
-	/**
-	 * Duplicate a Table Row in a table.
-	 */
-	function db_CopyRow($table,$fields = '*', $args='')
-	{
-		if(!$table || !$args )
-		{
-			return false;
-		}
-
-		if($fields === '*')
-		{
-			$fields = $this->db_FieldList($table);
-			unset($fields[0]); // Remove primary_id. 
-			$fieldList = implode(",",$fields);
-		}
-		else
-		{
-			$fieldList = $fields;
-		}
-
-		if(empty($fields))
-		{
-			$this->mysqlLastErrText = "copyRow \$fields list was empty";
-			return false;
-		}
-
-		$id = $this->gen("INSERT INTO ".$this->mySQLPrefix.$table."(".$fieldList.") SELECT ".$fieldList." FROM ".$this->mySQLPrefix.$table." WHERE ".$args);
-		$lastInsertId = $this->lastInsertId();
-		return ($id && $lastInsertId) ? $lastInsertId : false;
-
-	}
-
-
-	/**
-	 * @param $oldtable
-	 * @param $newtable
-	 * @param $drop
-	 * @param $data
-	 * @return bool|int|mysqli_result
-	 */
-	function db_CopyTable($oldtable, $newtable, $drop = FALSE, $data = FALSE)
-	{
-		$old = $this->mySQLPrefix.strtolower($oldtable);
-		$new = $this->mySQLPrefix.strtolower($newtable);
-
-		if ($drop)
-		{
-			$this->gen("DROP TABLE IF EXISTS {$new}");
-		}
-
-		//Get $old table structure
-		$this->gen('SET SQL_QUOTE_SHOW_CREATE = 1');
-
-		$qry = "SHOW CREATE TABLE {$old}";
-		if ($this->gen($qry))
-		{
-			$row = $this->fetch('num');
-			$qry = $row[1];
-			//        $qry = str_replace($old, $new, $qry);
-			$qry = preg_replace("#CREATE\sTABLE\s`?".$old."`?\s#", "CREATE TABLE {$new} ", $qry, 1); // More selective search
-		}
-		else
-		{
-			return FALSE;
-		}
-
-		if(!$this->isTable($newtable))
-		{
-			$result = $this->db_Query($qry);
-		}
-
-		if ($data) //We need to copy the data too
-		{
-			$qry = "INSERT INTO {$new} SELECT * FROM {$old}";
-			$result = $this->gen($qry);
-		}
-		return $result;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function copyTable($oldtable, $newtable, $drop = false, $data = false) {
-		return $this->db_CopyTable($oldtable, $newtable, $drop, $data);
-	}
-
-
-
-
 	/**
 	 * Dump MySQL Table(s) to a file in the Backup folder.
 	 * @param $table string - name without the prefix or '*' for all
@@ -2415,7 +1367,7 @@ class e_db_mysql implements e_db
 	 */
 	function backup($table='*', $file='', $options=null)
 	{
-		$this->mysqlLastErrText = "PDO is required to use the mysql backup() method";
+		$this->mySQLlastErrText = "PDO is required to use the mysql backup() method";
 		return false;
 	}
 
@@ -2444,32 +1396,7 @@ class e_db_mysql implements e_db
 
 	// Return error number for last operation
 
-	/**
-	 * @return int
-	 */
-	function getLastErrorNumber()
-	{
-		return $this->mySQLlastErrNum;		// Number of last error
-	}
-
 	// Return error text for last operation
-
-	/**
-	 * @return string
-	 */
-	function getLastErrorText()
-	{
-		return $this->mySQLlastErrText;		// Text of last error (empty string if no error)
-	}
-
-	/**
-	 * @return void
-	 */
-	function resetLastError()
-	{
-		$this->mySQLlastErrNum = 0;
-		$this->mySQLlastErrText = '';
-	}
 
 	/**
 	 * @return string
@@ -2511,10 +1438,12 @@ class e_db_mysql implements e_db
 			$mySQLcharset = '';
 		}
 		$charset = ($charset ? $charset : $mySQLcharset);
-		// $charset is used as a backtick-quoted identifier in SET NAMES; restrict to a strict charset-name allowlist.
-		if($charset && !preg_match('/^[A-Za-z0-9_]+$/', (string) $charset))
+		// $charset is interpolated into "SET NAMES `$charset`" below (both the
+		// mysqli_query and db_Query paths); a backtick would break out of the
+		// identifier context, so reject anything that is not a plain charset token.
+		if($charset && !preg_match('/^[A-Za-z0-9_]+$/D', $charset))
 		{
-			$charset = '';
+			return 'Invalid charset';
 		}
 		$message = (( ! $charset && $debug) ? 'Empty charset!' : '');
 		if($charset)
@@ -2549,6 +1478,18 @@ class e_db_mysql implements e_db
 	}
 
 
+	/**
+	 * Set Database charset to utf8mb4
+	 *
+	 * @access private
+	 */
+	public function setCharset($charset = 'utf8mb4')
+	{
+		$this->_getMySQLaccess();
+		$this->mySQLaccess->set_charset($charset);
+
+		$this->mySQLcharset = $charset;
+	}
 
 	/**
 	 *	Get the _FIELD_DEFS and _NOTNULL definitions for a table
@@ -2701,50 +1642,23 @@ class e_db_mysql implements e_db
 	 * When the global variable has been unset like in https://github.com/e107inc/e107-test/issues/6 ,
 	 * use the "mySQLaccess" from the default e_db_mysql instance singleton.
 	 */
-	private function provide_mySQLaccess()
+	private function _getMySQLaccess()
 	{
 		if (!$this->mySQLaccess) {
 			global $db_ConnectionID;
 			$this->mySQLaccess = $db_ConnectionID;
 		}
+		if (!$this->mySQLaccess && ($db = e107::getDb()) !== $this) {
+			$this->mySQLaccess = $db->get_mySQLaccess();
+		}
 		if (!$this->mySQLaccess) {
-			$this->mySQLaccess = e107::getDb()->get_mySQLaccess();
+			// lazy self-connect from the config loaded in the constructor, like e_db_pdo::_getMySQLaccess()
+			$success = $this->connect($this->mySQLserver, $this->mySQLuser, $this->mySQLpassword);
+			if ($success) $success = $this->database($this->mySQLdefaultdb, $this->mySQLPrefix);
+			if (!$success) throw new RuntimeException($this->mySQLlastErrText);
 		}
 	}
 
-	/**
-	 * @deprecated 2.1.9 Used only to provide $mySQLaccess to other instances of e_db_mysql scattered around
-	 * @return mysqli
-	 */
-	public function get_mySQLaccess()
-	{
-		return $this->mySQLaccess;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function setLanguage($lang)
-	{
-		$this->mySQLlanguage = $lang;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function getLanguage()
-	{
-		return $this->mySQLlanguage;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function dropTable($table)
-	{
-		$name = $this->mySQLPrefix.strtolower($table);
-		return $this->gen("DROP TABLE IF EXISTS ".$name);
-	}
 }
 
 /**

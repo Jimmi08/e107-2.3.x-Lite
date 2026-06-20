@@ -305,6 +305,10 @@ class e_admin_log
 			$userIP = $userData['user_ip'];
 		}
 
+		// $userstring (USERNAME / user_name) is interpolated raw into the rolling-log
+		// INSERT below; escape it to prevent second-order SQLi from quotes in user names.
+		$userstring = $tp->toDB($userstring, true, false, 'no_html');
+
 		$importance = $tp->toDB($importance, true, false, 'no_html');
 		$eventcode = $tp->toDB($eventcode, true, false, 'no_html');
 
@@ -364,7 +368,7 @@ class e_admin_log
 		//---------------------------------------
 		if(($target_logs & LOG_TO_ROLLING) && $this->_roll_log_active)
 		{ //	Rolling log
-			if(getperms('0') && e_REQUEST_HTTP === '/e107_admin/admin_log.php') // Don't log while looking at the log.
+			if(getperms('0') && e_REQUEST_HTTP === '/eadmin/admin_log.php') // Don't log while looking at the log.
 			{
 				return;
 			}
@@ -437,11 +441,10 @@ class e_admin_log
 			);
 
 
-
-
-			$userstringEsc = $this->rldb->escape($userstring);
-			$userIPEsc = $this->rldb->escape($userIP);
-			$this->rldb->insert('dblog', '0, ' .intval($time_sec).', '.intval($time_usec).", '{$importance}', '{$eventcode}', ".intval($userid).", '{$userstringEsc}', '{$userIPEsc}', '{$source_call}', '{$event_title}', '{$explain}' ");
+			if(!$this->rldb->insert('dblog', '0, ' . intval($time_sec) . ', ' . intval($time_usec) . ", '{$importance}', '{$eventcode}', {$userid}, '{$userstring}', '{$userIP}', '{$source_call}', '{$event_title}', '{$explain}' "))
+			{
+				trigger_error("Error inserting admin rolling log entry: $eventcode", E_USER_WARNING);
+			}
 
 			// Now delete any old stuff
 			if(!empty($this->_roll_log_days))

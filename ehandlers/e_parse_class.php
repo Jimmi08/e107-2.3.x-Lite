@@ -854,25 +854,116 @@ class e_parse
 		return e107::getScParser()->parseCodes($text, $parseSCFiles, $extraCodes, $eVars);
 	}
 
+
 	/**
-	 * @experimental
-	 * @param string       $text
-	 * @param bool         $parseSCFiles
-	 * @param object|array $extraCodes
-	 * @param object       $eVars
-	 * @return string
+	 * Parses a JSON schema template, processes placeholders, and reconstructs the JSON with optional main entity and extra codes.
+	 *
+	 * @param string      $text         The JSON schema template to be parsed.
+	 * @param bool        $parseSCFiles Whether to enable the parsing of shortcode files. Defaults to true.
+	 * @param object|null $extraCodes   Optional extra codes object for placeholder parsing.
+	 * @param array|null  $mainEntity   Optional data array to replace the 'mainEntity' structure in the schema.
+	 * @return string|false The processed JSON schema string on success, or false if the input JSON is invalid.
 	 */
-	public function parseSchemaTemplate($text, $parseSCFiles = true, $extraCodes = null, $eVars = null)
+	public function parseSchemaTemplate($text, $parseSCFiles = true, $extraCodes = null, $mainEntity = null)
 	{
+
+		// Initialize the parser
 		$parse = e107::getScParser();
-		$parse->setMode('schema');
-		$text = e107::getScParser()->parseCodes($text, $parseSCFiles, $extraCodes, $eVars);
-		$text = str_replace('<!-- >', '', $text); // cleanup
+		$parse->setMode('schema'); // Set parsing mode for schema
+
+		// Step 1: Decode the JSON input into an array
+		$jsonArray = json_decode($text, true);
+
+		// Step 2: Validate JSON decoding
+		if(json_last_error() !== JSON_ERROR_NONE)
+		{
+			 error_log('Invalid JSON: ' . json_last_error_msg());
+			 return false;
+
+		}
+
+		// Step 3: Recursive function to process the JSON structure
+		$processItems = function (&$item) use (&$processItems, $parse, $parseSCFiles, $extraCodes, $mainEntity)
+		{
+
+			if(is_array($item))
+			{
+				// Check if the current item contains 'mainEntity', the target of our processing
+				if(isset($item['mainEntity']) && is_array($mainEntity))
+				{
+					// Get the first template item from the 'mainEntity' array to use as the structure
+					$schemaTemplate = $item['mainEntity'][0];
+					$item['mainEntity'] = []; // Reset the 'mainEntity' array to prevent duplication
+
+					foreach($mainEntity as $dataRow)
+					{
+
+						// Create a fresh copy of the schema template for this specific dataRow
+						$duplicatedItem = json_decode(json_encode($schemaTemplate), true);
+
+						// Update the extraCodes for the current data row
+						if(method_exists($extraCodes, 'setVars'))
+						{
+							$extraCodes->setVars($dataRow); // Inject new placeholders from this row
+						}
+
+						// Process placeholders in the duplicated item
+						foreach($duplicatedItem as &$value)
+						{
+							if(is_string($value) && strpos($value, '{') !== false)
+							{
+								// Parse placeholders for current dataRow
+								$value = $parse->parseCodes($value, $parseSCFiles, $extraCodes);
+								$value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+								$value = strip_tags($value);
+							}
+							elseif(is_array($value))
+							{
+								// Recursively process arrays (e.g., nested structures)
+								$processItems($value);
+							}
+						}
+
+						// Append the processed item to the 'mainEntity' array
+						$item['mainEntity'][] = $duplicatedItem;
+					}
+				}
+				else
+				{
+					// Recursively process other parts of the JSON structure
+					foreach($item as &$value)
+					{
+						$processItems($value);
+					}
+				}
+			}
+			elseif(is_string($item))
+			{
+				// Parse string placeholders, if any
+				if(strpos($item, '{') !== false)
+				{
+
+					$item = $parse->parseCodes($item, $parseSCFiles, $extraCodes);
+					$item = str_replace('&amp;', '&', $item);
+					$item = html_entity_decode($item, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+					 $item = strip_tags($item);
+
+
+				}
+			}
+		};
+
+		// Step 4: Initiate processing for the entire JSON structure
+		$processItems($jsonArray);
+
+		// Reset the parse mode after processing
 		$parse->setMode('default');
 
-		return $text;
-
+		// Step 5: Encode the final result back into JSON
+		return json_encode($jsonArray, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 	}
+
+
 
 
 	/**
@@ -2174,9 +2265,10 @@ class e_parse
 
 		$search = array('&amp;#039;', '&amp;#036;', '&#039;', '&#036;', '&#092;', '&amp;#092;');
 		$replace = array("'", '$', "'", '$', "\\", "\\");
-		$text = str_replace($search, $replace, $text);
 
-		return $text;
+		return str_replace($search, $replace, $text);
+
+
 	}
 
 
@@ -3059,9 +3151,9 @@ class e_parse
 	 * TODO - runtime cache of search/replace arrays (object property) when $mode !== ''
 	 *
 	 * @param string $text
-	 * @param string $mode                [optional]    abs|full "full" = produce absolute URL path, e.g. http://sitename.com/e107_plugins/etc
+	 * @param string $mode                [optional]    abs|full "full" = produce absolute URL path, e.g. http://sitename.com/eplugins/etc
 	 *                                    'abs' = produce truncated URL path, e.g. e107plugins/etc
-	 *                                    "" (default) = URL's get relative path e.g. ../e107_plugins/etc
+	 *                                    "" (default) = URL's get relative path e.g. ../eplugins/etc
 	 * @param mixed  $all                 [optional]    if TRUE, then when $mode is "full" or TRUE, USERID is also replaced...
 	 *                                    when $mode is "" (default), ALL other e107 constants are replaced
 	 * @return string|array
@@ -3402,7 +3494,7 @@ class e_parse
 				);
 				break;
 
-			case 3: // full path (e.g http://domain.com/e107_images/)
+			case 3: // full path (e.g http://domain.com/eimages/)
 				$tmp = array(
 					'{e_MEDIA_FILE}'  => SITEURLBASE . e_MEDIA_FILE_ABS,
 					'{e_MEDIA_VIDEO}' => SITEURLBASE . e_MEDIA_VIDEO_ABS,
@@ -3586,7 +3678,7 @@ class e_parse
 		// processing on an empty $text produced incorrect output. Revert
 		// condition: upstream adds an equivalent guard in obfuscate().
 		if($text == "") return '';
- 
+
 		foreach (str_split($text) as $letter)
 		{
 			switch (mt_rand(1, 3))
@@ -3883,7 +3975,7 @@ class e_parse
 	/**
 	 * Generic variable translator for LAN definitions.
 	 *
-	 * @param                $lan  - string LAN
+	 * @param string $lan  - string LAN or LAN constant.
 	 * @param string | array $vals - either a single value, which will replace '[x]' or an array with key=>value pairs.
 	 * @return string
 	 * @example $tp->lanVars("My name is [x] and I own a [y]", array("John","Cat"));
@@ -3891,8 +3983,7 @@ class e_parse
 	 */
 	public function lanVars($lan, $vals, $bold = false)
 	{
-
-		$lan = defset($lan, $lan);	
+		$lan = defset($lan, $lan);
 		$array = (!is_array($vals)) ? array('x' => $vals) : $vals;
 
 		$search = array();
@@ -3912,6 +4003,17 @@ class e_parse
 		}
 
 		return str_replace($search, $replace, $lan);
+	}
+
+
+	public function lanLink($lan, $url, $options=[])
+	{
+		$srch =["[", "]"];
+		$repl = ["<a target='_blank' href='" .$url . "'>", "</a>"];
+
+		$text = defset($lan, $lan);
+
+		return str_replace($srch, $repl, $text);
 	}
 
 	/**
@@ -4420,15 +4522,6 @@ class e_parse
 
 			if (!empty($content))
 			{
-				if(!empty($file))
-				{
-					$ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-				}
-				else
-				{
-					$ext = strtolower(pathinfo($url, PATHINFO_EXTENSION));
-				}
-
 				$url = 'data:image/' . $ext . ';base64,' . base64_encode($content);
 			}
 		}
@@ -4620,6 +4713,11 @@ class e_parse
 
 		$tp = $this;
 
+		if(($alt = $this->getImageAltCacheFile($file)) && empty($parm['alt']))
+		{
+			$parm['alt'] = $alt;
+		}
+
 		//		e107::getDebug()->log($file);
 		//	e107::getDebug()->log($parm);
 
@@ -4696,6 +4794,8 @@ class e_parse
 			$path = $tp->thumbUrl($file, $parm);
 		}
 
+
+
 		$id = (!empty($parm['id'])) ? 'id="' . $parm['id'] . '" ' : '';
 		$class = (!empty($parm['class'])) ? $parm['class'] : 'img-responsive img-fluid';
 		$alt = (!empty($parm['alt'])) ? $tp->toAttribute($parm['alt']) : basename($file);
@@ -4740,6 +4840,12 @@ class e_parse
 		if (empty($path))
 		{
 			return null;
+		}
+
+		if(varset($parm['return']) === 'url')
+		{
+			$path = $tp->createConstants($path, 'mix');
+			return $tp->replaceConstants($path, 'full');
 		}
 
 		$html .= "<img {$id}class=\"{$class}\" src=\"" . $path . '" alt="' . $alt . '" ' . $srcset . $width . $height . $style . $loading . $title . ' />';
@@ -4947,7 +5053,27 @@ class e_parse
 
 		$file = $this->replaceConstants($file, 'abs');
 
-		$mime = varset($parm['mime'], 'audio/mpeg');
+	    $ext = pathinfo($file, PATHINFO_EXTENSION);
+
+	    switch (strtolower($ext))
+	    {
+
+	        case 'wav':
+	            $mime = 'audio/wav';
+	            break;
+	        case 'ogg':
+	            $mime = 'audio/ogg';
+	            break;
+	        case 'mp3':
+	        default:
+	             $mime = 'audio/mpeg';
+	            break;
+	    }
+
+		if(!empty($parm['mime']))
+		{
+			$mime = $parm['mime'];
+		}
 
 		$autoplay = !empty($parm['autoplay']) ? 'autoplay ' : '';
 		$controls = !empty($parm['controls']) ? 'controls' : '';
@@ -5107,6 +5233,11 @@ class e_parse
 			$width = varset($parm['w'], 320);
 			$height = varset($parm['h'], 240);
 			$mime = varset($parm['mime'], 'video/mp4');
+
+			if($height === 0)
+			{
+				$height = 'auto';
+			}
 
 			return '
 			<div class="video-responsive">
@@ -5525,6 +5656,13 @@ class e_parse
 		}
 
 
+		// Normalize HTML5 void elements so serialization is identical
+		// across libxml versions. libxml < 2.13 treated elements like
+		// <source> as non-void and swallowed following text as their
+		// content; the HTML5-spec-compliant output keeps such text as
+		// a sibling and omits any closing tag.
+		$this->normalizeVoidElements($doc);
+
 		// Convert <code> and <pre> Tags to Htmlentities.
 		/* TODO XXX Still necessary? Perhaps using bbcodes only?
 		foreach($this->nodesToConvert as $node)
@@ -5556,6 +5694,8 @@ class e_parse
 
 		$cleaned = $doc->saveHTML($doc->documentElement); // $doc->documentElement fixes utf-8/entities issue. @see http://stackoverflow.com/questions/8218230/php-domdocument-loadhtml-not-encoding-utf-8-correctly
 
+		$cleaned = $this->stripVoidClosingTags($cleaned);
+
 		$cleaned = str_replace(
 			array("\n", '__E_PARSER_CLEAN_HTML_LINE_BREAK__', '__E_PARSER_CLEAN_HTML_NON_BREAKING_SPACE__', '{{{', '}}}', '__E_PARSER_CLEAN_HTML_CURLY_OPEN__', '__E_PARSER_CLEAN_HTML_CURLY_CLOSED__', '<body>', '</body>', '<html>', '</html>'),
 			array('', "\n", '&nbsp;', '&#123;', '&#125;', '{', '}', '', '', '', ''),
@@ -5563,6 +5703,81 @@ class e_parse
 		); // filter out tags.
 
 		return trim($cleaned);
+	}
+
+	/**
+	 * HTML5 void elements that may not have a closing tag.
+	 *
+	 * @var string[]
+	 */
+	private static $voidTags = array(
+		'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+		'link', 'meta', 'source', 'track', 'wbr',
+	);
+
+	/**
+	 * Move children out of HTML5 void elements and into sibling positions.
+	 *
+	 * Older libxml2 (< 2.13) parses elements like <source> as non-void and
+	 * sucks up following content as the element's child nodes. Newer libxml2
+	 * correctly treats them as void. Running this pass before serialization
+	 * normalizes the DOM so saveHTML() output is spec-compliant on every
+	 * libxml version.
+	 *
+	 * @param DOMDocument $doc
+	 * @return void
+	 */
+	private function normalizeVoidElements($doc)
+	{
+		$voidTags = self::$voidTags;
+
+		foreach ($voidTags as $tagName)
+		{
+			$nodes = $doc->getElementsByTagName($tagName);
+			$toFix = array();
+			foreach ($nodes as $node)
+			{
+				if ($node->hasChildNodes())
+				{
+					$toFix[] = $node;
+				}
+			}
+
+			foreach ($toFix as $node)
+			{
+				$parent = $node->parentNode;
+				$after = $node->nextSibling;
+				while ($node->hasChildNodes())
+				{
+					$child = $node->firstChild;
+					$node->removeChild($child);
+					if ($after === null)
+					{
+						$parent->appendChild($child);
+					}
+					else
+					{
+						$parent->insertBefore($child, $after);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Strip empty closing tags for HTML5 void elements from a serialized
+	 * HTML string. libxml2 < 2.13 emits a closing `</source>` etc. for any
+	 * element it does not recognize as void; once `normalizeVoidElements()`
+	 * has moved their children out, the closing tag is always empty and
+	 * safe to remove.
+	 *
+	 * @param string $html
+	 * @return string
+	 */
+	private function stripVoidClosingTags($html)
+	{
+		$pattern = '#</(?:' . implode('|', self::$voidTags) . ')>#i';
+		return preg_replace($pattern, '', $html);
 	}
 
 	/**

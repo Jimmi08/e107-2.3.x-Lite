@@ -428,7 +428,7 @@ class e107
 	}
 
 	/**
-	 * Returns the frontpage setting (ie. selected in e107_admin/frontpage.php) for the current user.
+	 * Returns the frontpage setting (ie. selected in eadmin/frontpage.php) for the current user.
 	 * @return string
 	 */
 	public static function getFrontpage()
@@ -1372,10 +1372,10 @@ class e107
 	 * Class overload is supported.
 	 * Examples:
 	 * - <code>e107::getPluginConfig('myplug');</code>
-	 * 	 will search for e107_plugins/myplug/e_pref/myplug_pref.php which
+	 * 	 will search for eplugins/myplug/e_pref/myplug_pref.php which
 	 * 	 should contain class 'e_plugin_myplug_pref' class (child of e_plugin_pref)
 	 * - <code>e107::getPluginConfig('myplug', 'row2');</code>
-	 * 	 will search for e107_plugins/myplug/e_pref/myplug_row2_pref.php which
+	 * 	 will search for eplugins/myplug/e_pref/myplug_row2_pref.php which
 	 * 	 should contain class 'e_plugin_myplug_row2_pref' class (child of e_plugin_pref)
 	 *
 	 * @param string $plug_name
@@ -1466,10 +1466,10 @@ class e107
 	 * Class overload is supported.
 	 * Examples:
 	 * - <code>e107::getTHemeConfig('mytheme');</code>
-	 * 	 will search for e107_plugins/myplug/e_pref/myplug_pref.php which
+	 * 	 will search for eplugins/myplug/e_pref/myplug_pref.php which
 	 * 	 should contain class 'e_plugin_myplug_pref' class (child of e_plugin_pref)
 	 * - <code>e107::getPluginConfig('myplug', 'row2');</code>
-	 * 	 will search for e107_plugins/myplug/e_pref/myplug_row2_pref.php which
+	 * 	 will search for eplugins/myplug/e_pref/myplug_row2_pref.php which
 	 * 	 should contain class 'e_plugin_myplug_row2_pref' class (child of e_plugin_pref)
 	 *
 	 * @param string $theme_name
@@ -3625,9 +3625,9 @@ class e107
 	 * <code>
 	 * echo e107::templatePath(plug_name, 'my');
 	 * // result is something like:
-	 * // e107_themes/current_theme/templates/plug_name/my_template.php
+	 * // ethemes/current_theme/templates/plug_name/my_template.php
 	 * // or if not found
-	 * // e107_plugins/plug_name/templates/my_template.php
+	 * // eplugins/plug_name/templates/my_template.php
 	 * </code>
 	 *
 	 * @see getThemeInfo()
@@ -3659,8 +3659,8 @@ class e107
 	 *
 	 * Example usage: <code>e107::getCoreTemplate('user', 'short_start');</code>
 	 * Will search for:
-	 * - e107_themes/current_frontend_theme/templates/user_template.php (if $override is true)
-	 * - e107_themes/templates/user_template.php (if override not found or $override is false)
+	 * - ethemes/current_frontend_theme/templates/user_template.php (if $override is true)
+	 * - ethemes/templates/user_template.php (if override not found or $override is false)
 	 * - $USER_TEMPLATE array which contains all user templates
 	 * - $USER_TEMPLATE['short_start'] (if key is null, $USER_TEMPLATE will be returned)
 	 *
@@ -3713,8 +3713,8 @@ class e107
 	 *
 	 * Example usage: <code>e107::getTemplate('user', 'short_start');</code>
 	 * Will search for:
-	 * - e107_themes/{current_frontend_theme}/templates/user_template.php (if $override is true) - this is the default.
-	 * - e107_core/templates/user_template.php (if override not found or $override is false)
+	 * - ethemes/{current_frontend_theme}/templates/user_template.php (if $override is true) - this is the default.
+	 * - ecore/templates/user_template.php (if override not found or $override is false)
 	 * - $USER_TEMPLATE array which contains all user templates
 	 * - $USER_TEMPLATE['short_start'] (if key is null, $USER_TEMPLATE will be returned)
 	 *
@@ -4034,7 +4034,7 @@ class e107
 	 * For modern language loading, consider using e107::lan(), e107::coreLan(), e107::plugLan(), or e107::themeLan()
 	 * as they provide more structured and maintainable options.
 	 *
-	 * @param string $path  The full path to the language file (e.g., 'e107_languages/English/lan_admin.php' or 'folder/Spanish/Spanish_global.php').
+	 * @param string $path  The full path to the language file (e.g., 'elanguages/English/lan_admin.php' or 'folder/Spanish/Spanish_global.php').
 	 * @param bool   $force [optional] If true, forces inclusion with include() instead of include_once(). Defaults to false.
 	 * @param string $lang  [optional] The language of the file (e.g., 'English', 'Spanish'). If empty, uses e_LANGUAGE or defaults to 'English'.
 	 * @return bool|int|string Returns:
@@ -4184,10 +4184,10 @@ class e107
 	 *
 	 * Examples:
 	 * <code><?php
-	 * 	// import defeinitions from /e107_languages/[CurrentLanguage]/lan_comment.php</code>
+	 * 	// import defeinitions from /elanguages/[CurrentLanguage]/lan_comment.php</code>
 	 * 	e107::coreLan('comment');
 	 *
-	 * 	// import defeinitions from /e107_languages/[CurrentLanguage]/admin/lan_banlist.php
+	 * 	// import defeinitions from /elanguages/[CurrentLanguage]/admin/lan_banlist.php
 	 * 	self::coreLan('banlist', true);
 	 * </code>
 	 *
@@ -4225,26 +4225,26 @@ class e107
 	 * Examples:
 	 * @example
 	 * <code><?php
-	 * 	// import defeinitions from /e107_plugins/forum/languages/[CurrentLanguage]/lan_forum.php
+	 * 	// import defeinitions from /eplugins/forum/languages/[CurrentLanguage]/lan_forum.php
 	 * 	e107::plugLan('forum', 'lan_forum');
 	 *
-	 * 	// import defeinitions from /e107_plugins/featurebox/languages/[CurrentLanguage]_admin_featurebox.php
-	 *  // OR /e107_plugins/featurebox/languages/[CurrentLanguage]/[CurrentLanguage]_admin_featurebox.php (auto-detected)
+	 * 	// import defeinitions from /eplugins/featurebox/languages/[CurrentLanguage]_admin_featurebox.php
+	 *  // OR /eplugins/featurebox/languages/[CurrentLanguage]/[CurrentLanguage]_admin_featurebox.php (auto-detected)
 	 * 	e107::plugLan('featurebox', 'admin_featurebox', true);
 	 *
-	 * 	// import defeinitions from /e107_plugins/myplug/languages/[CurrentLanguage]_front.php
+	 * 	// import defeinitions from /eplugins/myplug/languages/[CurrentLanguage]_front.php
 	 * 	e107::plugLan('myplug');
 	 *
-	 * 	// import defeinitions from /e107_plugins/myplug/languages/[CurrentLanguage]_admin.php
+	 * 	// import defeinitions from /eplugins/myplug/languages/[CurrentLanguage]_admin.php
 	 * 	e107::plugLan('myplug', true);
 	 *
-	 * // import defeinitions from /e107_plugins/myplug/languages/[CurrentLanguage].php // FOR BC only.
+	 * // import defeinitions from /eplugins/myplug/languages/[CurrentLanguage].php // FOR BC only.
 	 * 	e107::plugLan('myplug', null);
 	 *
-	 * 	// import defeinitions from /e107_plugins/myplug/languages/[CurrentLanguage]/[CurrentLanguage]_front.php
+	 * 	// import defeinitions from /eplugins/myplug/languages/[CurrentLanguage]/[CurrentLanguage]_front.php
 	 * 	e107::plugLan('myplug', 'front', true);
 	 *
-	 * 	// import defeinitions from /e107_plugins/myplug/languages/[CurrentLanguage]/admin/common.php
+	 * 	// import defeinitions from /eplugins/myplug/languages/[CurrentLanguage]/admin/common.php
 	 * 	e107::plugLan('myplug', 'admin/common');
 	 * </code>
 	 *
@@ -4339,19 +4339,19 @@ class e107
 	 *
 	 * Examples:
 	 * <code><?php
-	 * 	// import defeinitions from /e107_themes/[CurrentTheme]/languages/[CurrentLanguage]/lan.php
+	 * 	// import defeinitions from /ethemes/[CurrentTheme]/languages/[CurrentLanguage]/lan.php
 	 * 	e107::themeLan('lan');
 	 *
-	 * 	// import defeinitions from /e107_themes/[currentTheme]/languages/[CurrentLanguage].php
+	 * 	// import defeinitions from /ethemes/[currentTheme]/languages/[CurrentLanguage].php
 	 * 	e107::themeLan();
 	 *
-	 * 	// import defeinitions from /e107_themes/[currentTheme]/languages/[CurrentLanguage]_lan.php
+	 * 	// import defeinitions from /ethemes/[currentTheme]/languages/[CurrentLanguage]_lan.php
 	 * 	e107::themeLan('lan', null, true);
 	 *
-	 * 	// import defeinitions from /e107_themes/[currentTheme]/languages/[CurrentLanguage]/admin/lan.php
+	 * 	// import defeinitions from /ethemes/[currentTheme]/languages/[CurrentLanguage]/admin/lan.php
 	 * 	e107::themeLan('admin/lan');
 	 *
-	 * 	// import defeinitions from /e107_themes/some_theme/languages/[CurrentLanguage].php
+	 * 	// import defeinitions from /ethemes/some_theme/languages/[CurrentLanguage].php
 	 * 	e107::themeLan('', 'some_theme');
 	 * </code>
 	 *

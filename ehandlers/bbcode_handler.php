@@ -844,7 +844,6 @@ class e_bbcode
 				$code_text = $img['src'];
 			}
 
-
 			unset($img['src'],$img['srcset'],$img['@value'], $img['caption'], $img['alt']);
 			$parms = !empty($img) ? ' '.str_replace('+', ' ', http_build_query($img)) : "";
 
@@ -1106,3 +1105,4 @@ class e_bb_base
 		return $this->toWYSIWYG($code_text, $parm);
 	}
 }
+

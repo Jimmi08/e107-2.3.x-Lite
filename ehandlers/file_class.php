@@ -543,6 +543,7 @@ class e_file
 		return $finfo;
 	}
 
+
 	/**
 	 * Reject URLs that point at private/reserved IP ranges or non-HTTP(S) protocols.
 	 * Define `e_REMOTE_FILE_ALLOW_PRIVATE` to bypass for legitimate intranet use.
@@ -649,10 +650,8 @@ class e_file
 	 * @param string $remote_url
 	 * @param string $local_file string filename to save as
 	 * @param string $type       media, temp, or import
-	 * @param int    $timeout    cURL timeout in seconds (default 40)
 	 * @return boolean TRUE on success, FALSE on failure (which includes absence of CURL functions)
 	 */
-
 	// LITE MODIFICATION: getRemoteFile() robustness rewrite.
 	// Lite uses a more defensive remote-fetch implementation than
 	// upstream. SSRF protections (isUrlSafe/canonicalizeIp/CURLOPT_PROTOCOLS
@@ -1970,19 +1969,14 @@ class e_file
 
 
 	/**
-	 * Download and extract a zipped copy of e107, a plugin, or a theme.
+	 * Download and extract a zipped copy of e107
 	 *
-	 * @param string $url              'core'   — download e107 core from GitHub master
-	 *                                 'plugin' — download a plugin from GitHub (requires $params)
-	 *                                 'theme'  — download a theme from GitHub (requires $params)
-	 *                                 other    — treated as a full language pack URL
-	 * @param string $destination_path The e107 root path (with trailing separator). Default: e_BASE
-	 * @param array  $params           Required for 'plugin' and 'theme':
-	 *                                   'organization' — GitHub org or username
-	 *                                   'repo'         — GitHub repository name
-	 *                                   'branch'       — branch or tag name
-	 *                                   'folder'       — destination folder name inside e107_plugins/ or e107_themes/
-	 * @return array|bool FALSE on failure; array with 'success', 'error', 'skipped' keys on completion
+	 * @param string $url              "core" to download the e107 core from Git master or
+	 *                                 a custom download URL
+	 * @param string $destination_path The e107 root where the downloaded archive should be extracted,
+	 *                                 with a directory separator at the end
+	 * @return array|bool FALSE on failure;
+	 *                                 An array of successful and failed path extractions
 	 */
 	// LITE MODIFICATION: unzipGithubArchive() plugin/theme download
 	// rewrite. Lite handles GitHub archive download/extraction

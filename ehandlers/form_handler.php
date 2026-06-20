@@ -1763,8 +1763,7 @@ class e_form
 		$xsize		= (!empty($options['size']) && !is_numeric($options['size'])) ? $options['size'] : 'xlarge';
 		$disabled 	= !empty($options['disabled']) ? 'disabled' : '';
 		$placeholder = !empty($options['placeholder']) ? 'placeholder="'.$options['placeholder'].'"' : '';
-		$timezone    = '';
-
+		$extras    = '';
 
 
 		if(!empty($options['timezone'])) // since datetimepicker does not support timezones and assumes the browser timezone is the intended timezone.
@@ -1772,7 +1771,22 @@ class e_form
 			date_default_timezone_set($options['timezone']);
 			$targetOffset = date('Z');
 			date_default_timezone_set(USERTIMEZONE);
-			$timezone = "data-date-timezone-offset='".$targetOffset."'";
+			$extras .= " data-date-timezone-offset='".$targetOffset."'";
+		}
+
+		if(!empty($options['minuteStep']))
+		{
+			$extras .= " data-minute-step='".(int) $options['minuteStep']."'";
+		}
+
+		if(!empty($options['startDate']))
+		{
+			$extras .= " data-start-date='". $options['startDate']."'";
+		}
+
+		if(!empty($options['showMeridian']))
+		{
+			$extras .= " data-show-meridian='". $options['showMeridian']."'";
 		}
 
 		$text = '';
@@ -1784,7 +1798,7 @@ class e_form
 		}
 		else
 		{
-			$text .= "<input class='{$class} input-".$xsize." form-control' type='text' size='{$size}' id='e-datepicker-{$id}' value='{$value}' data-date-unix ='{$useUnix}' data-date-format='{$dformat}' data-date-ampm='{$ampm}' data-date-language='".e_LAN."' data-date-firstday='{$firstDay}' {$required} {$disabled} {$placeholder} {$timezone} />";
+			$text .= "<input class='{$class} input-".$xsize." form-control' type='text' size='{$size}' id='e-datepicker-{$id}' value='{$value}' data-date-unix ='{$useUnix}' data-date-format='{$dformat}' data-date-ampm='{$ampm}' data-date-language='".e_LAN."' data-date-firstday='{$firstDay}' {$required} {$disabled} {$placeholder} {$extras} />";
 			$ftype = (!empty($options['debug'])) ? 'text' : 'hidden';
 			$text .= "<input type='{$ftype}' name='{$name}' id='{$id}' value='{$hiddenValue}' />";
 		}
@@ -1821,10 +1835,6 @@ class e_form
 	{
 
 		$fields = (!empty($options['fields']))  ? $options['fields'] : 'user_id,user_name,user_class';
-		if(!preg_match('/^[A-Za-z0-9_,\.\s]+$/', (string) $fields)) // $fields is a column list (identifiers)
-		{
-			$fields = 'user_id,user_name,user_class';
-		}
 		$class =  (!empty($options['classes']))   ? $options['classes'] : e_UC_MEMBER ; // all users sharing the same class as the logged-in user.
 
 		$class = str_replace(' ', '',$class);
@@ -1911,6 +1921,7 @@ class e_form
 			foreach($users as $u)
 			{
 				$id = $u['user_id'];
+				if(!empty($options['excludeSelf']) && ($id == USERID)){continue;}
 				$opt[$id] = $u['user_name'];
 			}
 
@@ -3464,7 +3475,7 @@ class e_form
 			<button type="submit" name="etrigger_filter" value="etrigger_filter" id="etrigger-filter" class="btn filter e-hide-if-js btn-primary"><span>Filter</span></button>
 		
 						<span class="indicator" style="display: none;">
-							<img src="/e107_2.0/e107_images/generic/loading_16.gif" class="icon action S16" alt="Loading...">
+							<img src="/e107_2.0/eimages/generic/loading_16.gif" class="icon action S16" alt="Loading...">
 						</span>	
 		
 		*/
@@ -3579,7 +3590,8 @@ var_dump($select_options);*/
 	 */
 	public function optgroup_open($label, $disabled = false, $options = null)
 	{
-		return "<optgroup class='optgroup ".varset($options['class'])."' label='{$label}'".($disabled ? " disabled='disabled'" : '').">\n";
+		$unique = 'optgroup-'.$this->name2id($label);
+		return "<optgroup class='optgroup $unique ".varset($options['class'])."' label='{$label}'".($disabled ? " disabled='disabled'" : '').">\n";
 	}
 
 	/**
@@ -3811,7 +3823,7 @@ var_dump($select_options);*/
 
 			case 'delete':
 				$icon = deftrue('e_ADMIN_AREA') ? defset('ADMIN_DELETE_ICON') : $tp->toIcon('fa-trash.glyph');
-				$options['class'] = $options['class'] === 'action' ? 'btn btn-danger btn-secondary action delete' : $options['class'];
+				$options['class'] = $options['class'] === 'action' ? 'btn btn-danger action delete' : $options['class'];
 				$options['data-confirm'] = LAN_JSCONFIRM;
 			break;
 
@@ -4539,9 +4551,9 @@ var_dump($select_options);*/
 	public function columnSelector($columnsArray, $columnsDefault = array(), $id = 'column_options')
 	{
 		$columnsArray = array_filter($columnsArray);
-		$tabs = [];
+		$tabs = []; 
 
-		if ($adminUI = e107::getAdminUI())
+		if($adminUI = e107::getAdminUI())
 		{
 			try
 			{
@@ -4549,26 +4561,26 @@ var_dump($select_options);*/
 			}
 			catch (Exception $e)
 			{
-				// do something
+			   // do something
 			}
 		}
 
-
-		// navbar-header nav-header
-
+		
+	// navbar-header nav-header
+	// navbar-header nav-header
 		$text = '<div class="col-selection dropdown e-tip pull-right float-right" data-placement="left">
-    <a class="dropdown-toggle" title="'.LAN_EFORM_008.'" data-toggle="dropdown" data-bs-toggle="dropdown" href="#">'. e107::getParser()->toGlyph('fa-sliders.glyph').'</a>
+    <a class="dropdown-toggle" title="'.LAN_EFORM_008.'" data-toggle="dropdown" data-bs-toggle="dropdown" href="#">'.e107::getParser()->toGlyph('fa-sliders.glyph').'</a>
     <ul class="list-group dropdown-menu  col-selection e-noclick" role="menu" aria-labelledby="dLabel">
    
-    <li class="list-group-item "><h5 class="list-group-item-heading">' . LAN_EFORM_009 . '</h5></li>
+    <li class="list-group-item "><h5 class="list-group-item-heading">'.LAN_EFORM_009.'</h5></li>
     <li class="list-group-item col-selection-list">
      <ul class="nav scroll-menu" >';
+		
+        unset($columnsArray['options'], $columnsArray['checkboxes']);
 
-		unset($columnsArray['options'], $columnsArray['checkboxes']);
-
-		foreach ($columnsArray as $key => $fld)
+		foreach($columnsArray as $key => $fld)
 		{
-			if (!isset($fld['type']) || $fld['type'] === null) // Fixes #4083
+			if(!isset($fld['type']) || $fld['type'] === null) // Fixes #4083
 			{
 				continue;
 			}
@@ -4576,14 +4588,14 @@ var_dump($select_options);*/
 			$theType = vartrue($fld['type']);
 			if (empty($fld['forced']) && empty($fld['nolist']) && $theType !== 'hidden' && $theType !== 'upload')
 			{
-				$checked = (in_array($key, $columnsDefault)) ?  TRUE : FALSE;
+				$checked = (in_array($key,$columnsDefault)) ?  TRUE : FALSE;
 				$title = '';
-				if (isset($fld['tab']))
+				if(isset($fld['tab']))
 				{
 					$tb = $fld['tab'];
-					if (!empty($tabs[$tb]))
+					if(!empty($tabs[$tb]))
 					{
-						$title = $tabs[$tb] . ": ";
+						$title = $tabs[$tb].": ";
 					}
 				}
 
@@ -4592,7 +4604,7 @@ var_dump($select_options);*/
 
 				$text .= "
 					<li role='menuitem'><a href='#' title=\"$title\">
-						" . $this->checkbox('e-columns[]', $key, $checked, 'label=' . $ttl) . '
+						".$this->checkbox('e-columns[]', $key, $checked,'label='.$ttl). '
 					</a>
 					</li>
 				';
@@ -4600,33 +4612,32 @@ var_dump($select_options);*/
 		}
 
 		// has issues with the checkboxes.
-		$text .= "
+        $text .= "
 				</ul>
 				</li>
 				 <li class='list-group-item'>
 				<div id='{$id}-button' class='right'>
-					" . $this->admin_button('etrigger_ecolumns', LAN_SAVE, 'btn btn-primary btn-small') . '
+					".$this->admin_button('etrigger_ecolumns', LAN_SAVE, 'btn btn-primary btn-small'). '
 				</div>
 				 </li>
 				</ul>
 			</div>';
-
-		//	$text .= "</div></div>";
+			
+	//	$text .= "</div></div>";
 
 		$text .= '';
-
-
-		/*
+	
+	
+	/*
 	$text = '<div class="dropdown">
     <a class="dropdown-toggle" data-toggle="dropdown" data-bs-toggle="dropdown" href="#"><b class="caret"></b></a>
     <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
     <li>hi</li>
     </ul>
     </div>';
-	*/
+	*/	
 		return $text;
 	}
-
 
 
 	/**
@@ -4902,7 +4913,7 @@ var_dump($select_options);*/
 	 * @param array $currentlist - eg $this->fieldpref
 	 * @param array $fieldvalues - eg. $row
 	 * @param string $pid - eg. table_id
-	 * @return string
+	 * @return string|null
 	 */
 	public function renderTableCells($fieldarray, $currentlist, $fieldvalues, $pid)
 	{
@@ -5083,7 +5094,7 @@ var_dump($select_options);*/
 			$options['pk'] = $pid;
 		}
 
-		$title = varset($options['title'], (LAN_EDIT . ' ' . $fieldName));
+		$title = varset($options['title'], (LAN_EDIT . ' ' . defset($fieldName,$fieldName)));
 		$class = varset($options['class']);
 
 		unset($options['title']);
@@ -5220,7 +5231,7 @@ var_dump($select_options);*/
 		$editIconDefault = deftrue('ADMIN_EDIT_ICON', $tp->toGlyph('fa-edit'));
 		$deleteIconDefault = deftrue('ADMIN_DELETE_ICON', $tp->toGlyph('fa-trash'));
 
-		// option to set custom icons. @see e107_admin/image.php media_form_ui::options
+		// option to set custom icons. @see eadmin/image.php media_form_ui::options
 		if(!empty($attributes['icons']))
 		{
 			$editIconDefault = !empty($attributes['icons']['edit']) ? $attributes['icons']['edit'] : $editIconDefault;
@@ -5291,7 +5302,6 @@ var_dump($select_options);*/
 
 			$att = [
 					'href'               => e_SELF . "?$query",
-					// $eModal includes its own leading+trailing spaces (' e-modal ' or '')
 					'class'              => "btn btn-default btn-success$eModal",
 					'data-modal-caption' => $eModalCap,
 					'title'              => LAN_EDIT,
@@ -5340,7 +5350,7 @@ var_dump($select_options);*/
 	 * @param string $field field name
 	 * @param mixed $value field value
 	 * @param array $attributes field attributes including render parameters, element options - see e_admin_ui::$fields for required format
-	 * @return string
+	 * @return string|null
 	 */
 	public function renderValue($field, $value, $attributes, $id = 0)
 	{
@@ -5458,7 +5468,11 @@ var_dump($select_options);*/
 
 				if($parms)
 				{
-					if(isset($parms['sep']))
+					if (!empty($parms['format']) && $parms['format'] === 'bytes')
+					{
+                        $value = eHelper::parseMemorySize($value, varset($parms['decimals'], 2)); // Use 'decimals' from parms or default to 2
+					}
+					elseif(isset($parms['sep']))
 					{
 						$value = number_format($value, varset($parms['decimals'],0), vartrue($parms['point'], '.'), vartrue($parms['sep'], ' '));
 					}
@@ -5477,7 +5491,6 @@ var_dump($select_options);*/
 					$value = $this->renderLink($value,$parms,$id);
 				}
 
-				
 				$value = vartrue($parms['pre']).$value.vartrue($parms['post']);
 				// else same
 			break;
@@ -6238,7 +6251,10 @@ var_dump($select_options);*/
 					    $styleClass = ($value === 1) ? 'admin-true-icon' : 'admin-false-icon';
                     }
 
-
+					if(!isset($attributes['title']))
+					{
+						trigger_error("$field is missing the 'title' key/attribute", E_USER_WARNING);
+					}
 					return $this->renderInline($field, $id, $attributes['title'], $value, $dispValue, 'select', $wparms, array('class'=>'e-editable-boolean '.$styleClass));
 				}
 				
@@ -7801,7 +7817,7 @@ var_dump($select_options);*/
 					$tabs = [];
 					foreach($data['tabs'] as $tabId => $label)
 					{
-						$tabs[$tabId] = array('caption'=> $label, 'text'=>$this->renderCreateFieldset($elid, $data, $model, $tabId));
+						$tabs[$tabId] = array('caption'=> defset($label,$label), 'text'=>$this->renderCreateFieldset($elid, $data, $model, $tabId));
 					}
 
 
@@ -8543,3 +8559,6 @@ echo $rs->form_option("Option 4");
 echo $rs->form_select_close();
 echo $rs->form_close();
 */
+
+
+

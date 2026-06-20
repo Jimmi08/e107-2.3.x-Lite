@@ -343,7 +343,7 @@ class eFront
 	/**
 	 * Dispatch
 	 */
-	public function dispatch(eRequest $request = null, eResponse $response = null, eDispatcher $dispatcher = null)
+	public function dispatch(eRequest|null $request = null, eResponse|null $response = null, eDispatcher|null $dispatcher = null)
 	{
 		if(null === $request)
 		{
@@ -591,7 +591,7 @@ class eDispatcher
 	 * @return void
 	 * @throws eException
 	 */
-	public function dispatch(eRequest $request = null, eResponse $response = null)
+	public function dispatch(eRequest|null $request = null, eResponse|null $response = null)
 	{
 		$controllerName = $request->getControllerName();
 		$moduleName = $request->getModuleName();
@@ -1295,8 +1295,8 @@ class eRouter
 	 * The only exception are plugins - if plugin requires install (plugin.xml) and it is not installed,
 	 * it won't be registered
 	 * Another important thing is - core has always higher priority, as plugins are not allowed to 
-	 * directly override core modules. At this moment, core modules could be overloaded only via override configs (e107_core/override/url/) 
-	 * and controllers (e107_core/override/controllers) 
+	 * directly override core modules. At this moment, core modules could be overloaded only via override configs (ecore/override/url/) 
+	 * and controllers (ecore/override/controllers) 
 	 * This array is stored as url_modules core preference 
 	 * 
 	 * @param string $type possible values are all|plugin|core|override
@@ -2974,7 +2974,7 @@ abstract class eUrlConfig
 	 * @param array $config
 	 * @return false string route or false on error
 	 */
-	public function parse($pathInfo, $params = array(), eRequest $request = null, eRouter $router = null, $config = array())
+	public function parse($pathInfo, $params = array(), eRequest|null $request = null, eRouter|null $router = null, $config = array())
 	{
 		return false;
 	}
@@ -3050,7 +3050,7 @@ class eController
 	 * @param eRequest $request
 	 * @param eResponse|null $response
 	 */
-	public function __construct(eRequest $request, eResponse $response = null)
+	public function __construct(eRequest $request, eResponse|null $response = null)
 	{
 		$this->setRequest($request)
 			->setResponse($response)
@@ -3204,7 +3204,7 @@ class eController
 	 * @return eResponse
 	 * @throws eException
 	 */
-	public function run(eRequest $request = null, eResponse $response = null)
+	public function run(eRequest|null $request = null, eResponse|null $response = null)
 	{
 		if(null === $request) $request = $this->getRequest();
 		else $this->setRequest($request);
@@ -3372,7 +3372,7 @@ class eControllerFront extends eController
 	/**
 	 * Base constructor - set 404/403 locations
 	 */
-	public function __construct(eRequest $request, eResponse $response = null)
+	public function __construct(eRequest $request, eResponse|null $response = null)
 	{
 		parent::__construct($request, $response);
 		$this->_init();

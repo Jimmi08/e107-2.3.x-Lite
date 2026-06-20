@@ -150,7 +150,7 @@ class notify
 		$blockOriginator = FALSE;		// TODO: set this using a pref
 		$recipients = array();
 
-		if(strpos($notifyTarget, '::') !== false) // custom router @see e107_plugins/_blank/e_notify.php
+		if(strpos($notifyTarget, '::') !== false) // custom router @see eplugins/_blank/e_notify.php
 		{
 			list($class,$method) = explode('::', $notifyTarget);
 

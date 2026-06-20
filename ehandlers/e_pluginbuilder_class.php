@@ -172,13 +172,9 @@ class e_pluginbuilder
 		private function buildSQLFile($table, $file)
 		{
 
-			$table = e107::getParser()->filter($table);
-
-			// $table is a backtick-quoted identifier; reject anything outside a strict identifier allowlist.
-			if(!preg_match('/^[A-Za-z0-9_]+$/', (string) $table))
-			{
-				return;
-			}
+			// $table is embedded inside a backtick-quoted identifier; filter() does not
+			// strip backticks, so restrict it to identifier-safe characters instead.
+			$table = preg_replace('/[^A-Za-z0-9_]/', '', e107::getParser()->filter($table));
 
 			e107::getDb()->gen("SHOW CREATE TABLE `#".$table."`");
 			$data = e107::getDb()->fetch('num');
@@ -583,12 +579,11 @@ $content .= '}';
 
 			array_unshift($list,'_blank', '_blank_setup', '_blank_menu', '_blank_template', '_blank_shortcodes');
 
-			$templateDir = e_PLUGIN . "_blank";
-			$templateFiles = is_dir($templateDir) ? scandir($templateDir) : array();
+			$templateFiles = scandir(e_PLUGIN."_blank");
 
 
 
-	 	//var_dump($templateFiles);
+	//print_a($list);
 		//	$list[] = "_blank";
 		//	$list[] = "_blank_setup";
 
@@ -665,9 +660,6 @@ $content .= '}';
 		function pluginXml()
 		{
 
-
-			//TODO Plugin.xml Form Fields. .
-
 			$data = array(
 				'main' 			=> array('name','lang','version','date', 'compatibility'),
 				'author' 		=> array('name','url'),
@@ -676,7 +668,7 @@ $content .= '}';
 				'keywords' 		=> array('one','two','three'),
 				'category'		=> array('category'),
 				'copyright'		=> array('copyright'),
-		//		'adminLinks'	=> array('url','description','icon','iconSmall','primary'),
+				'adminLinks'	=> array('url', 'description', 'icon', 'iconSmall', 'icon128'),
 		//		'sitelinks'		=> array('url','description','icon','iconSmall')
 			);
 
@@ -736,21 +728,27 @@ $content .= '}';
 			$existingXml = e_PLUGIN.$this->pluginName."/plugin.xml";
 			if(file_exists($existingXml))
 			{
-				$p = e107::getXml()->loadXMLfile($existingXml,true);
+				$p = e107::getXml()->loadXMLfile($existingXml, 'advanced');
 
-		//		print_a($p);
+			//		print_a($p);
 				$defaults = array(
 					"main-name"					=> varset($p['@attributes']['name']),
 					"main-lang"					=> varset($p['@attributes']['lan']),
 					"author-name"				=> varset($p['author']['@attributes']['name']),
 					"author-url"				=> varset($p['author']['@attributes']['url']),
-					"description-description"	=> varset($p['description']),
-					"summary-summary"			=> varset($p['summary'], $p['description']),
+					"description-description"	=> varset($p['description']['@value']),
+					"summary-summary"			=> varset($p['summary'], $p['summary']['@value']),
 					"category-category"			=> varset($p['category']),
 					"copyright-copyright"			=> varset($p['copyright']),
 					"keywords-one"				=> varset($p['keywords']['word'][0]),
 					"keywords-two"				=> varset($p['keywords']['word'][1]),
 					"keywords-three"			=> varset($p['keywords']['word'][2]),
+					"adminLinks-url"			=> varset($p['adminLinks']['link'][0]['@attributes']['url']),
+					"adminLinks-description"	=> varset($p['adminLinks']['link'][0]['@attributes']['description']),
+					"adminLinks-icon"			=> varset($p['adminLinks']['link'][0]['@attributes']['icon']),
+					"adminLinks-iconSmall"		=> varset($p['adminLinks']['link'][0]['@attributes']['iconSmall']),
+					"adminLinks-icon128"		=> varset($p['adminLinks']['link'][0]['@attributes']['icon128']),
+
 				);
 
 				unset($p);
@@ -889,6 +887,30 @@ $content .= '}';
 					$help 		= EPL_ADLAN_146;
 					$required 	= true;
 					$size 		= 20;
+				break;
+
+				case 'adminLinks-url':
+				//	$help 		= '';
+					$default = 'admin_config.php';
+					$size 		= 20;
+				break;
+
+				case 'adminLinks-description':
+					$default = 'LAN_CONFIGURE';
+					$type = 'text';
+				break;
+
+				case 'adminLinks-icon':
+					$default = 'images/icon_32.png';
+				break;
+
+				case 'adminLinks-iconSmall':
+					$default = 'images/icon_16.png';
+				break;
+
+
+				case 'adminLinks-icon128':
+					$default = 'images/icon_128.png';
 				break;
 
 				default:
@@ -1030,7 +1052,7 @@ $template = <<<TEMPLATE
 	<category>{CATEGORY_CATEGORY}</category>
 	<copyright>{COPYRIGHT_COPYRIGHT}</copyright>
 	<adminLinks>
-		<link url="admin_config.php" description="{ADMINLINKS_DESCRIPTION}" icon="images/icon_32.png" iconSmall="images/icon_16.png" icon128="images/icon_128.png" primary="true" >LAN_CONFIGURE</link>
+		<link url="{ADMINLINKS_URL}" description="{ADMINLINKS_DESCRIPTION}" icon="{ADMINLINKS_ICON}" iconSmall="{ADMINLINKS_ICONSMALL}" icon128="{ADMINLINKS_ICON128}" primary="true" >LAN_CONFIGURE</link>
 	</adminLinks>
 	{PLUGINPREFS}
 </e107Plugin>
@@ -2016,7 +2038,11 @@ class " . $table . " extends e_admin_ui
 		protected \$fields 		= " . $FIELDS . ";		
 		
 		protected \$fieldpref = array(" . implode(", ", $FIELDPREF) . ");
-		
+	
+	//	protected \$filterSort = ['field_key_5', 'field_key_7']; // Display these fields first in the filter drop-down. 
+	
+	//	protected \$batchSort = ['field_key_5', 'field_key_7'];; // Display these fields first in the batch drop-down.
+	
 ";
 
 

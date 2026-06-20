@@ -1284,7 +1284,7 @@ class e_session_db implements SessionHandlerInterface
     // silences the PHP 8.x notice and is inert on 7.4. Do not replace
     // with real return types when syncing — that would break PHP 7.4.
     #[\ReturnTypeWillChange]
-    public function open($path,  $name)
+    public function open($path, $name)
     {
         return true;
     }
@@ -1390,7 +1390,7 @@ class e_session_db implements SessionHandlerInterface
      * @return bool
      */
     #[\ReturnTypeWillChange]
-    public function gc($maxlifetime)
+    public function gc($max_lifetime)
     {
         return $this->_db->delete($this->getTable(), '`session_expires`<'.time());
     }
@@ -1400,7 +1400,7 @@ class e_session_db implements SessionHandlerInterface
      * @param string $id
      * @return string
      */
-    protected function _sanitize($id)
+    protected function _sanitize(string $id): string
     {
         return preg_replace('#[^0-9a-zA-Z,-]#', '', $id);
     }

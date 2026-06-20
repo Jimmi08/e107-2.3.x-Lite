@@ -51,13 +51,12 @@ class db_table_admin
 			$prefix = MPREFIX;
 		}
 		//	echo "Get table structure for: {$table_name}, prefix: {$prefix}<br />";
-		// $prefix.$table_name is a backtick-quoted identifier; reject anything outside a strict allowlist.
-		if (!preg_match('/^[A-Za-z0-9_]+$/', (string) ($prefix.$table_name)))
-		{
-			return FALSE;
-		}
 		$sql->gen('SET SQL_QUOTE_SHOW_CREATE = 1');
-		$qry = 'SHOW CREATE TABLE `'.$prefix.$table_name."`";
+		// $prefix.$table_name form a SQL identifier (inside backticks) that cannot be
+		// bound; strip to identifier-safe characters so a backtick cannot break out.
+		$safePrefix = preg_replace('/[^A-Za-z0-9_]/', '', $prefix);
+		$safeTable  = preg_replace('/[^A-Za-z0-9_]/', '', $table_name);
+		$qry = 'SHOW CREATE TABLE `'.$safePrefix.$safeTable."`";
 		if (!($z = $sql->gen($qry)))
 		{
 			return FALSE;
@@ -716,11 +715,9 @@ class db_table_admin
 					{
 						echo "List of changes found:<br />".$this->make_changes_list($diffs);
 					}
-					if (!preg_match('/^[A-Za-z0-9_]+$/', (string) $tableName)) // $tableName is an SQL identifier
-					{
-						return FALSE;
-					}
-					$qry = 'ALTER TABLE '.MPREFIX.$tableName.' '.implode(', ', $diffs[1]);
+					// $tableName is a SQL identifier (cannot be bound); sanitise and backtick-quote it.
+					$safeTableName = preg_replace('/[^A-Za-z0-9_]/', '', $tableName);
+					$qry = 'ALTER TABLE `'.MPREFIX.$safeTableName.'` '.implode(', ', $diffs[1]);
 					if ($debugLevel)
 					{
 						echo 'Update Query used: '.$qry.'<br />';
@@ -760,14 +757,11 @@ class db_table_admin
 			{
 				$newTableName = MPREFIX.$newTableName;
 			}
-			// $newTableName is injected as a replacement into a CREATE TABLE identifier; reject non-identifiers.
-			if (!preg_match('/^[A-Za-z0-9_]+$/', (string) $newTableName))
-			{
-				return FALSE;
-			}
+			// $newTableName is a SQL identifier (cannot be bound); sanitise and backtick-quote it.
+			$newTableName = preg_replace('/[^A-Za-z0-9_]/', '', $newTableName);
 			if ($newTableName != $tableName)
 			{
-				$createText = preg_replace('#create +table +(\w*?) +#i', 'CREATE TABLE '.$newTableName.' ', $createText);
+				$createText = preg_replace('#create +table +(\w*?) +#i', 'CREATE TABLE `'.$newTableName.'` ', $createText);
 			}
 			return e107::getDb()->gen($createText);
 		}

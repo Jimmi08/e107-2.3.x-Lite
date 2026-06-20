@@ -160,7 +160,7 @@ class e_media
 				'media_type'		=> $f['mime']
 			);
 
-			if(!$sql->select('core_media','media_url',"media_url = '".$sql->escape($fullpath)."' LIMIT 1"))
+			if(!$sql->createQueryBuilder()->select('media_url')->from('core_media')->where('media_url', $fullpath)->limit(1)->execute())
 			{
 			
 				if($sql->insert("core_media",$insert))
@@ -229,7 +229,7 @@ class e_media
 		$sql = e107::getDb();
 		$mes = e107::getMessage();
 
-		$status = ($sql->delete('core_media',"media_cat = '".$sql->escape($cat)."'")) ? true : false;
+		$status = ($sql->createQueryBuilder()->delete('core_media')->where('media_cat', $cat)->execute()) ? true : false;
 		$mes->add("Removing Media in Category: ".$cat, E_MESSAGE_DEBUG);
 		return $status;
 	}
@@ -256,7 +256,7 @@ class e_media
 		}
 
 		$path = $tp->createConstants($epath, 'rel');
-		$status = ($sql->delete('core_media',"media_url LIKE '".$sql->escape($path)."%'".$qry)) ? TRUE : FALSE;
+		$status = ($sql->execute("DELETE FROM `#core_media` WHERE media_url LIKE :pat".$qry, array('pat' => $path."%"))) ? TRUE : FALSE;
 		$message = ($type == 'image') ?  "Removing Media with path: ".$path : "Removing Icons with path: ".$path;
 		$mes->add($message, E_MESSAGE_DEBUG);
 		return $status;
@@ -280,7 +280,7 @@ class e_media
 		
 		$path = $tp->createConstants($epath, 'rel');
 	
-		$sql->gen("SELECT * FROM `#core_media` WHERE `media_url` LIKE '".$sql->escape($path)."%' AND media_category REGEXP '_icon_16|_icon_32|_icon_48|_icon_64|_icon_svg' ");
+		$sql->execute("SELECT * FROM `#core_media` WHERE `media_url` LIKE :pat AND media_category REGEXP '_icon_16|_icon_32|_icon_48|_icon_64|_icon_svg' ", array('pat' => $path."%"));
 		while ($row = $sql->fetch())
 		{
 			$ret[] = $row['media_url'];
@@ -386,13 +386,13 @@ class e_media
 		
 		$sql = e107::getDb();
 		
-		$sql->select('core_media_cat',"media_cat_category", "media_cat_owner = '".$sql->escape($owner)."' ");
+		$sql->createQueryBuilder()->select('media_cat_category')->from('core_media_cat')->where('media_cat_owner', $owner)->execute();
 		while($row = $sql->fetch())
 		{
 			$categories[] = "'".$row['media_cat_category']."'";
 		}
 
-		if($sql->delete('core_media_cat', "media_cat_owner = '".$sql->escape($owner)."' "))
+		if($sql->createQueryBuilder()->delete('core_media_cat')->where('media_cat_owner', $owner)->execute())
 		{
 			//TODO retrieve all category names for owner, and reset all media categories to _common. 
 			return TRUE;
@@ -406,25 +406,40 @@ class e_media
 	 * Return an Array of Media Categories
 	 *
 	 * @param string $owner
+	 * @param string $orderby column with optional ASC/DESC direction; anything
+	 *                        outside that grammar falls back to media_cat_order
 	 * @return array
 	 */
-	public function getCategories($owner='')
+	public function getCategories($owner='', $orderby='media_cat_order')
 	{
 		$ret = array();
-		
-		
-		$qry = "SELECT * FROM #core_media_cat ";
-		$qry .= ($owner) ? " WHERE media_cat_owner = '".e107::getDb()->escape($owner)."' " : " (1) ";
-		$qry .= "AND media_cat_class IN (".USERCLASS_LIST.") ";
-		$qry .= "ORDER BY media_cat_order";
-		
-		e107::getDb()->gen($qry);
+
+		$safeOrderBy = e_db_filter::orderBy($orderby);
+
+		if($safeOrderBy === false) // fail closed
+		{
+			$safeOrderBy = '`media_cat_order` ASC';
+		}
+
+		$params = array();
+		$qry = "SELECT * FROM `#core_media_cat` WHERE ";
+
+		if($owner)
+		{
+			$qry .= "media_cat_owner = :owner AND ";
+			$params['owner'] = $owner;
+		}
+
+		$qry .= "media_cat_class IN (".USERCLASS_LIST.") ORDER BY ".$safeOrderBy;
+
+		e107::getDb()->execute($qry, $params);
+
 		while($row = e107::getDb()->fetch())
 		{
 			$id = $row['media_cat_category'];
 			$ret[$id] = $row;
 		}
-		return $ret;	
+		return $ret;
 	}
 
 	/**
@@ -502,7 +517,8 @@ class e_media
 	 * @param int    $from
 	 * @param int|string     $amount
 	 * @param string  $search
-	 * @param string   $orderby
+	 * @param string   $orderby columns with optional ASC/DESC direction; anything
+	 *                          outside that grammar falls back to the default order
 	 * @return array|bool
 	 */
 	private function getMedia($type, $cat='', $from=0, $amount=null, $search=null, $orderby=null)
@@ -537,17 +553,17 @@ class e_media
 		}
 
 
-		// TODO check the category is valid. 
-		
-		$sql = e107::getDb();
+		// TODO check the category is valid.
+
+		$params = array();
 
 		if($search)
 		{
-			$searchEsc = $sql->escape($search);
-			$searchinc[] = "media_name LIKE '%".$searchEsc."%' ";
-			$searchinc[] = "media_description LIKE '%".$searchEsc."%' ";
-			$searchinc[] = "media_caption LIKE '%".$searchEsc."%' ";
-			$searchinc[] = "media_tags LIKE '%".$searchEsc."%' ";
+			$params['search'] = '%'.addcslashes($search, '%_\\').'%'; // LIKE wildcards in the search term match literally
+			$searchinc[] = "media_name LIKE :search ";
+			$searchinc[] = "media_description LIKE :search ";
+			$searchinc[] = "media_caption LIKE :search ";
+			$searchinc[] = "media_tags LIKE :search ";
 		}
 
 
@@ -556,51 +572,52 @@ class e_media
 
 		$fields = ($amount == 'all') ? "media_id" : "*";
 
-		$catEsc = array();
-		foreach($catArray as $catItem)
-		{
-			$catEsc[] = $sql->escape($catItem);
-		}
+		$catAnchored = array_map(function($c) {
+			return '(^|,)' . preg_quote($c, '/') . '(,|$)';
+		}, $catArray);
 
-		$query = "SELECT ".$fields." FROM #core_media WHERE `media_category` REGEXP '(^|,)".implode("|",$catEsc)."(,|$)'
+		$params['catpattern'] = implode("|", $catAnchored);
+		$params['typepattern'] = $type."/%";
+
+		$query = "SELECT ".$fields." FROM `#core_media` WHERE `media_category` REGEXP :catpattern
 		AND `media_userclass` IN (".USERCLASS_LIST.")
-		AND `media_type` LIKE '".$sql->escape($type)."/%' " ;
+		AND `media_type` LIKE :typepattern ";
+
 
 		if($search)
 		{
-			$query .= " AND ( ".implode(" OR ",$searchinc)." ) " ;	
+			$query .= " AND ( ".implode(" OR ",$searchinc)." ) " ;
 		}
 
-		// $orderby is an ORDER BY clause (column names + ASC/DESC); allow only identifier-safe tokens.
-		if($orderby && preg_match('/^[A-Za-z0-9_,\s]+$/', (string) $orderby))
-		{
-			$query .= " ORDER BY " . $orderby;
-		}
-		else
+		$safeOrderBy = ($orderby) ? e_db_filter::orderBy($orderby) : false;
+
+		if($safeOrderBy === false) // fail closed; the default places the specified category before the _common categories.
 		{
 			// LITE MODIFICATION: media_category ASC dropped from default
 			// ORDER BY (kept only media_id DESC). Upstream's category sort
 			// ordered images incorrectly in our case. Revert only if upstream
 			// fixes the category sort or our usage changes.
-			// Sort by media_id DESC only — Lite drops upstream's category
-			// pre-sort (see LITE MODIFICATION above).
-			$query .= " ORDER BY media_id DESC";
+			// NOTE: re-applied onto upstream's refactored e_db_filter::orderBy
+			// fail-closed default (old Lite used an if/else preg_match branch).
+			$safeOrderBy = '`media_id` DESC';
 		}
+
+		$query .= " ORDER BY ".$safeOrderBy;
 
 		if($amount == 'all')
 		{
-			return e107::getDb()->gen($query);		
+			return e107::getDb()->execute($query, $params);
 		}
 
-		
+
 		if($amount)
 		{
-			$query .= " LIMIT ".(int) $from." ,".(int) $amount;	
+			$query .= " LIMIT ".(int) $from." ,".(int) $amount;
 		}
 
 		e107::getDebug()->log($query);
 
-		e107::getDb()->gen($query);
+		e107::getDb()->execute($query, $params);
 		while($row = e107::getDb()->fetch())
 		{
 			$id = $row['media_id'];
@@ -624,7 +641,7 @@ class e_media
 		
 		if($type)
 		{
-			$inc[] = "media_category = '_icon_".e107::getDb()->escape($type)."' ";
+			$inc[] = "media_category = '_icon_".$type."' ";
 		}
 
 		$ret = array();
@@ -634,7 +651,7 @@ class e_media
 		
 		if($amount)
 		{
-			$query .= " LIMIT ".(int) $from." ,".(int) $amount;	
+			$query .= " LIMIT ".$from." ,".$amount;	
 		}
 		
 		e107::getDb()->gen($query);
@@ -957,7 +974,7 @@ class e_media
 			$newpath = $this->getPath($f['mime']).'/'.$file;						
 		}
 		
-		if($sql->select("core_media","media_url","media_url LIKE '%".$sql->escape($tp->createConstants($newpath,'rel'))."' LIMIT 1"))
+		if($sql->createQueryBuilder()->select('media_url')->from('core_media')->whereLike('media_url', '%'.$tp->createConstants($newpath,'rel'))->limit(1)->execute())
 		{
 			// $mes->addWarning($newpath." detected in media-manager.");
 			$this->log("Import not performed. ".$newpath." detected in media table already.");
@@ -1199,7 +1216,7 @@ class e_media
 		if(empty($this->mimePaths[$pmime]))
 		{
 			$this->log("Couldn't detect mime-type ($mime).");
-			$text = $text = str_replace('[x]',$mime,IMALAN_111); //FIXME LAN IMALAN_112 is not generic. This method can be called from anywhere, not only e107_admin/image.php.
+			$text = $text = str_replace('[x]',$mime,IMALAN_111); //FIXME LAN IMALAN_112 is not generic. This method can be called from anywhere, not only eadmin/image.php.
 			$mes->add($text, E_MESSAGE_ERROR);
 			return FALSE;
 		}

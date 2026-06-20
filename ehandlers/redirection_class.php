@@ -100,11 +100,8 @@ class redirection
 	 */
 	function __construct()
 	{
-		
-		//e_LOGIN is already in self_exceptions
-		//$this->page_exceptions = array('e_ajax.php', 'e_js.php', 'e_jslib.php', 'sitedown.php',e_LOGIN, 'secimg.php');
-		$this->page_exceptions = array('e_ajax.php', 'e_js.php', 'e_jslib.php', 'sitedown.php',  'secimg.php');
 		$this->self_exceptions = array(e_SIGNUP, SITEURL.'fpw.php', e_LOGIN, SITEURL.'membersonly.php');
+		$this->page_exceptions = array('e_ajax.php', 'e_js.php', 'e_jslib.php', 'sitedown.php',e_LOGIN, 'secimg.php');
 		$this->query_exceptions = array('logout');
 		$this->staticDomains    = defset('e_HTTP_STATIC');
 		$this->domain           = defset('e_DOMAIN');
@@ -113,6 +110,7 @@ class redirection
 
 		// Remove from self_exceptions:  SITEURL, SITEURL.'index.php', // allows a custom frontpage to be viewed while logged out and membersonly active.
 	}
+
 
 	/**
 	 * @return array
@@ -131,7 +129,6 @@ class redirection
 	 */
 	function setPreviousUrl($url = null, $forceNoSef = false, $forceCookie = false)
 	{
-
 		if(!$url)
 		{
 			// Only remember a real page navigation, never an asset / AJAX / login-family
@@ -505,7 +502,7 @@ class redirection
 		// Embedded / dialog views are not navigable landing pages. e107 switches a
 		// page into iframe or modal rendering via these request markers (the menu
 		// manager's ?configure=, the shared ?iframe=1, and cpage / image dialogs'
-		// ?mode=dialog / ?action=dialog - see e107_admin/boot.php, menus.php,
+		// ?mode=dialog / ?action=dialog - see eadmin/boot.php, menus.php,
 		// cpage.php), but each page only recognises the marker AFTER its getperms()
 		// gate has already funnelled the unauthenticated sub-request through
 		// redirection::go('admin'). Recognise the markers here - off the URL itself,
@@ -760,6 +757,53 @@ class redirection
 		exit; 	
 	}
 
+	 /**
+     * Determines the correct host and generates the redirection URL if needed.
+     *
+     * @param array $server  The $_SERVER superglobal containing request data.
+     * @param string $prefUrl The preferred site URL from preferences.
+     * @return string|bool   The redirection URL if a redirection is required, or false if no redirection is needed.
+     */
+	public function host(array $server, string $prefUrl, string $adminDir='')
+	{
+
+		// Extract the current domain and port
+		list($urlbase, $urlport) = explode(':', $server['HTTP_HOST'] . ':');
+		$urlport = $urlport ?: (int) ($server['SERVER_PORT'] ?: 80);
+
+		// Parse the preferred site URL
+		$aPrefURL = parse_url($prefUrl);
+
+		if(empty($aPrefURL['host']))
+		{
+			return false; // Invalid URL structure
+		}
+
+		$PrefRoot = $aPrefURL['host'];
+		list($PrefSiteBase, $PrefSitePort) = explode(':', $PrefRoot . ':');
+		$PrefSitePort = $PrefSitePort ?: (($aPrefURL['scheme'] === 'https') ? 443 : 80);
+
+		$hostMismatch = (strcasecmp($urlbase, $PrefSiteBase) !==0); // -- base domain does not match (case-insensitive)
+		$portMismatch = ($urlport !== $PrefSitePort); 	 // -- ports do not match (http <==> https)
+
+		if(($portMismatch || $hostMismatch) && strpos($server['PHP_SELF'], $adminDir) === false)
+		{
+			// Reconstruct the redirect URL
+			$aeSELF = explode('/', $server['PHP_SELF'], 4);
+			$aeSELF[0] = $aPrefURL['scheme'] . ':'; // Correct scheme (http/https)
+			$aeSELF[1] = ''; // Defensive code: ensure http:// not http:/<garbage>/
+			$aeSELF[2] = $PrefRoot; // Correct domain and port if needed
+
+			$location = implode('/', $aeSELF) . ($server['QUERY_STRING'] ? '?' . $server['QUERY_STRING'] : '');
+
+			return filter_var($location, FILTER_SANITIZE_URL);
+		}
+
+
+		return false; // No redirection needed
+	}
+
+
 	
 	/**
 	 * Redirect to the given URI
@@ -790,7 +834,7 @@ class redirection
 			// through this branch (e107::redirect('admin') in the page's getperms()
 			// gate). Capture the page they were on first, so a successful admin login
 			// can return them to it instead of always landing on the dashboard
-			// (consumed in e107_admin/auth.php). setLoginDestination() self-guards via
+			// (consumed in eadmin/auth.php). setLoginDestination() self-guards via
 			// isCapturable(); skip it for users who are already admins, e.g. the
 			// post-login go('admin') to the dashboard.
 			if(!e107::getUser()->isAdmin())

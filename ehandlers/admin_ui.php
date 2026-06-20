@@ -1177,13 +1177,13 @@ class e_admin_dispatcher
 			return false;
 		}
 		// mode admin permission (former getperms())
-		if(isset($this->modes[$mode]['perm']) && !e107::getUser()->checkAdminPerms($this->modes[$mode]['perm']))
+		if(isset($this->modes[$mode]['perm']) && !$this->checkAdminPermCode($this->modes[$mode]['perm']))
 		{
 			return false;
 		}
-		
+
 		// generic dispatcher admin permission  (former getperms())
-		if($this->perm !== null && is_string($this->perm) && !e107::getUser()->checkAdminPerms($this->perm))
+		if($this->perm !== null && is_string($this->perm) && !$this->checkAdminPermCode($this->perm))
 		{
 			return false;
 		}
@@ -1203,19 +1203,41 @@ class e_admin_dispatcher
 		}
 
 		// LITE MODIFICATION: OO permission API instead of legacy check_class()/getperms()
+		// (upstream has since converged on an OO permission API here — checkClass()/
+		// checkAdminPermCode(); marker retained to document the Lite intent).
 		if(isset($this->access[$route]) && !e107::getUser()->checkClass($this->access[$route], false))
 		{
 			e107::getMessage()->addDebug('Userclass Permissions Failed: ' .$this->access[$route]);
 			return false;
 		}
 
-		if(is_array($this->perm) && isset($this->perm[$route]) && !e107::getUser()->checkAdminPerms($this->perm[$route]))
+		if(is_array($this->perm) && isset($this->perm[$route]) && !$this->checkAdminPermCode($this->perm[$route]))
 		{
 			e107::getMessage()->addDebug('Admin Permissions Failed.' .$this->perm[$route]);
 			return false;
 		}
 
 		return true;
+	}
+
+	/**
+	 * Check a dispatcher perm code against the current user model, resolving
+	 * the special 'P' code (admin permission for the plugin being dispatched)
+	 * the same way getperms() does from the request path. The model carries
+	 * the permission-emulation overlay (#5745), so these checks stay faithful
+	 * during emulation.
+	 *
+	 * @param string $perm
+	 * @return bool
+	 */
+	protected function checkAdminPermCode($perm)
+	{
+		if($perm === 'P' && deftrue('e_CURRENT_PLUGIN'))
+		{
+			return e107::getUser()->checkPluginAdminPerms(e_CURRENT_PLUGIN);
+		}
+
+		return e107::getUser()->checkAdminPerms($perm);
 	}
 
 	/**
@@ -3234,8 +3256,7 @@ class e_admin_controller_ui extends e_admin_controller
 	{
 		return  $this->batchSort;
 	}
-
-
+	
 	/**
 	 * @return string
 	 */
@@ -5174,8 +5195,9 @@ class e_admin_controller_ui extends e_admin_controller
 	 * @param mixed  $handleAction  Custom action handler for the search process.
 	 * @return string|false|array
 	 */
-	public function _modifyListQrySearch(?string $listQry, string $searchTerm, string $filterOptions, string $tablePath,  string $tableFrom, ?string $primaryName, $raw, $orderField, $qryAsc, $forceFrom, int $qryFrom, $forceTo, int $perPage, $qryField,  $isfilter, $handleAction)
+	public function _modifyListQrySearch(string|null $listQry, string $searchTerm, string $filterOptions, string $tablePath,  string $tableFrom, string|null $primaryName, $raw, $orderField, $qryAsc, $forceFrom, int $qryFrom, $forceTo, int $perPage, $qryField,  $isfilter, $handleAction)
 	{
+		$generateTest = false;
 		$tp       = e107::getParser();
 		$fields   = $this->getFields();
 		$joinData = $this->getJoinData();
@@ -5193,6 +5215,41 @@ class e_admin_controller_ui extends e_admin_controller
 		$searchFilter = $this->_parseFilterRequest($filterOptions);
 
 		$listQry = $this->listQry; // check for modification during parseFilterRequest();
+
+		$debugData = [
+			'uri'    => e_REQUEST_URI,
+		    'methodInvocation' => [
+		        'listQry'      => (string) $listQry,
+		        'searchTerm'   => $searchTerm,
+		        'filterOptions'=> $filterOptions,
+		        'tablePath'    => $tablePath,
+		        'tableFrom'    => $tableFrom,
+		        'primaryName'  => $primaryName,
+		        'raw'          => (bool) $raw,
+		        'orderField'   => $orderField,
+		        'qryAsc'       => $qryAsc,
+		        'forceFrom'    => $forceFrom,
+		        'qryFrom'      => $qryFrom,
+		        'forceTo'      => $forceTo,
+		        'perPage'      => $perPage,
+		        'qryField'     => $qryField,
+		        'isfilter'     => $isfilter,
+		        'handleAction' => $handleAction
+		    ],
+		    'preProcessedData' => [
+		        'fields'   => $fields,
+		        'joinData' => $joinData,
+		        'listOrder' => $this->listOrder,
+		    ],
+		    'intermediateStates' => [
+		        'searchTerm'  => $searchTerm,
+		        'searchQuery' => $searchQuery,
+		        'searchFilter'=> $searchFilter,
+		        'listQry'     => $this->listQry
+		    ]
+		];
+
+
 
 		if(E107_DEBUG_LEVEL == E107_DBG_SQLQUERIES)
 		{
@@ -5256,7 +5313,7 @@ class e_admin_controller_ui extends e_admin_controller
 									'thisyear'  => strtotime('+1 year', $filterValue),
 								];
 
-								$end = isset($endOpts[$dateSearchType]) ? $endOpts[$dateSearchType] : time();
+								$end = $endOpts[$dateSearchType] ?? time();
 
 								if(E107_DEBUG_LEVEL == E107_DBG_SQLQUERIES)
 								{
@@ -5340,6 +5397,7 @@ class e_admin_controller_ui extends e_admin_controller
 			{
 				// Search for customer filter handler.
 				$customSearchMethod = 'handle' . $handleAction . eHelper::camelize($key) . 'Search';
+
 				$args                = array($searchTerm);
 
 				e107::getMessage()->addDebug('Searching for custom search method: ' . $className . '::' . $customSearchMethod . '(' . implode(', ', $args) . ')');
@@ -5425,6 +5483,7 @@ class e_admin_controller_ui extends e_admin_controller
 
 		}
 
+	//	fwrite(STDOUT, __LINE__ . print_r($filter,true) . "\n");
 
 
 		if(strpos($filterOptions, 'searchfield__') === 0) // search in specific field, so remove the above filters.
@@ -8649,7 +8708,7 @@ class e_admin_form_ui extends e_form
 		$table = $obj->getTableName();
 		$text = '';
 		$textsingle = '';
-
+				
 
 		$searchFieldOpts = array();
 
@@ -9081,6 +9140,7 @@ class e_admin_form_ui extends e_form
 			if(!empty($option))
 			{
 				$text .= "\t".$this->optgroup_open($optdiz[$type].defset($val['title'], $val['title']), varset($disabled))."\n";
+
 				foreach($option as $okey=>$oval)
 				{
 					$text .= $this->option($oval, $okey, $selected == $okey)."\n";
@@ -9088,7 +9148,6 @@ class e_admin_form_ui extends e_form
 				$text .= "\t".$this->optgroup_close()."\n";
 			}
 		}
-
 
 		$text2 = '';
 

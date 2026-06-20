@@ -8,7 +8,7 @@
  *
  *
  *
- * $Source: /cvs_backup/e107_0.8/e107_handlers/search/search_event.php,v $
+ * $Source: /cvs_backup/e107_0.8/ehandlers/search/search_event.php,v $
  * $Revision$
  * $Date$
  * $Author$
@@ -21,7 +21,7 @@ $results = $sql->select("event", "*", "event_stake REGEXP('".$query."') OR event
 	OR event_location REGEXP('".$query."') OR event_details REGEXP('".$query."') OR event_thread REGEXP('".$query."') ");
 while (list($event_id, $event_stake, $event_ward, $event_organisation, $event_start, $event_end, $event_allday, , , $event_title, $event_location, $event_details, $event_author, $event_contact, $event_category, $event_url ) = $sql->fetch()) {
 	 
-	$sql2->select("event_cat", "event_cat_name, event_cat_icon", "event_cat_id='".intval($event_category)."' ");
+	$sql2->createQueryBuilder()->select('event_cat_name', 'event_cat_icon')->from('event_cat')->where('event_cat_id', (int) $event_category)->execute();
 	list($event_cat_name, $event_cat_icon ) = $sql2->fetch();
 	 
 	$event_stake_ = parsesearch($event_stake, $query);

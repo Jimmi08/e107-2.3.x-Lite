@@ -780,7 +780,7 @@ class eIPHandler
 	 * @param string $fieldName - if non-empty, each array entry is a comparison with this field
 	 * @return array|bool - array of network ban patterns, or false if invalid domain
 	 */
-	function makeDomainQuery($domain, $fieldName = 'banlist_ip')  //fixed for PHP 7.4
+	function makeDomainQuery($domain, $fieldName = 'banlist_ip') // PHP 7.4: union return type array|bool dropped
 	{
 
 		$domain = trim($domain);
@@ -796,8 +796,15 @@ class eIPHandler
 		}
 
 
-		$sanitized_domain = strtolower($domain);
+		// $domain may originate from attacker-controlled reverse-DNS (PTR) data and is
+		// later interpolated into SQL by callers (e.g. ban()). Restrict it to valid
+		// hostname characters so no SQL metacharacter can survive into the query.
+		$sanitized_domain = preg_replace('/[^a-z0-9.\-]/', '', strtolower($domain));
 
+		if($sanitized_domain === '' || strpos($sanitized_domain, '.') === false)
+		{
+			return $fieldName ? false : [];
+		}
 
 		$parts = array_reverse(explode('.', $sanitized_domain));
 
@@ -928,18 +935,8 @@ class eIPHandler
 				{
 					$vals = array_unique($vals);			// Could get identical values from domain name check and email check
 
-					if($this->debug)
-					{
-						print_a($vals);
-					}
+					$match = "`banlist_ip`='".implode("' OR `banlist_ip`='", $vals)."'";
 
-
-					$valsEsc = array();
-					foreach($vals as $valItem)
-					{
-						$valsEsc[] = e107::getDb()->escape($valItem);
-					}
-					$match = "`banlist_ip`='".implode("' OR `banlist_ip`='", $valsEsc)."'";
 					$this->checkBan($match);
 				}
 			}
@@ -1723,7 +1720,7 @@ class banlistManager
 
 		foreach ($ipAction as $ipKey => $ipInfo)
 		{
-			if ($ourDb->select('banlist', '*', "`banlist_ip`='".$ourDb->escape($ipKey)."'") === 1)
+			if ($ourDb->createQueryBuilder()->select('*')->from('banlist')->where('banlist_ip', $ipKey)->execute() === 1)
 			{
 				if ($row = $ourDb->fetch())
 				{

@@ -1,460 +1,242 @@
 <?php
-/**
+/*
  * e107 website system
  *
- * e_marketplace.php
- * Replaces the old e107.org API with GitHub-based pluginpack.xml registry.
+ * Copyright (C) 2008-2013 e107 Inc (e107.org)
+ * Released under the terms and conditions of the
+ * GNU General Public License (http://www.gnu.org/licenses/gpl.txt)
  *
- * Registry source : e_PLUGIN . 'pluginpack.xml'  (local file, installed with e107)
- * Remote data     : plugin.xml fetched per repo from raw.githubusercontent.com
+ * Application store client
  *
- * Only change required in plugin.php:
- *   $xdata = $mp->getRegistryList('plugin');
- *
- * $xdata structure is identical to the original marketplace response.
  */
 
 e107::coreLan('theme', true);
- 
+
+
+/**
+ *
+ */
 class e_marketplace
 {
 	/**
-	 * Empty $xdata skeleton — returned on any error so callers never receive null.
-	 *
-	 * @param  string $type
-	 * @return array
+	 * Protocol type, defaults to WSDL, fallback to 'xmlrpc' if soap extension not installed
+	 * @var e_marketplace_adapter_abstract
 	 */
-	private function emptyResult($type)
-	{
-		return array(
-			'params' => array(
-				'count'         => 0,
-				'type'          => $type,
-				'authenticated' => 0,
-			),
-			'data' => array(),
-		);
-	}	
-
+	protected $adapter = null;
+	
+	/**
+	 * Adapter identifier
+	 * @var string wsdl|xmlrpc
+	 */
+	protected $_adapter_name = null;
 
 	/**
-	 * Read pluginpack.xml and return $xdata matching original marketplace format.
-	 * Fetches remote plugin.xml per entry to populate version, author, icon etc.
-	 *
-	 * @param  string $type  'plugin' or 'theme'
-	 * @return array
+	 * Constructor
+	 * @param string $force force adapter wsdl|xmlrpc, omit to switch to auto-detection
 	 */
-	public function getRegistryList($type = 'plugin')
+	public function __construct($force = null)
 	{
-		// separate files per type
-		$fileMap = array(
-			'plugin' => e_PLUGIN . 'pluginpack.xml',
-			'theme'  => e_THEME  . 'themepack.xml',
-		);
-
-		if (!isset($fileMap[$type]))
+		if(null !== $force)
 		{
-			e107::getMessage()->addWarning('Unknown registry type: ' . $type);
-			return $this->emptyResult($type);
+			$this->_adapter_name = $force === 'wsdl' ? 'wsdl' : 'xmlrpc';
+		}
+		elseif(!class_exists('SoapClient')) $this->_adapter_name = 'xmlrpc';
+		else
+		{
+			$this->_adapter_name = 'wsdl';
 		}
 
-		$xmlFile = $fileMap[$type];
-
-		if (!is_readable($xmlFile))
-		{
-			e107::getMessage()->addWarning($xmlFile . ' not found.');
-			return $this->emptyResult($type);
-		}
-
-		$xml  = e107::getXml();
-		$data = $xml->loadXMLfile($xmlFile, 'advanced');
-
-		if (empty($data))
-		{
-			e107::getMessage()->addWarning($xmlFile . ' could not be parsed.');
-			return $this->emptyResult($type);
-		}
-
-		return $this->parseRegistry($data, $type);
 	}
-
-		/**
-	 * Parse the array produced by xmlClass::loadXMLfile($file, 'advanced').
-	 * Iterates <plugin> (or <theme>) nodes, fetches remote plugin.xml per entry.
-	 *
-	 * xmlClass 'advanced' (xml2array) produces attributes under '@attributes':
-	 *   $node['@attributes']['folder']
-	 *   $node['@attributes']['organization']
-	 *   etc.
-	 *
-	 * @param  array  $data  Parsed XML array from xmlClass
-	 * @param  string $type  'plugin' or 'theme'
-	 * @return array
+	
+	/**
+	 * Set authorization key
+	 * @deprecated subject of removal
 	 */
-	private function parseRegistry($data, $type)
+	public function generateAuthKey($username, $password)
 	{
-		$result = $this->emptyResult($type);
-
-		// xmlClass returns multiple same-name nodes as numeric array,
-		// single node as associative — normalize to numeric
-		$nodes = isset($data[$type]) ? $data[$type] : array();
-
-		if (empty($nodes))
+		if(trim($username) == '' || trim($password) == '')
 		{
-			return $result;
+			return false;	
 		}
-
-		// Single entry — xmlClass returns assoc instead of array of assoc
-		if (isset($nodes['@attributes']))
-		{
-			$nodes = array($nodes);
-		}
-
-		$i = 0;
- 
-		foreach ($nodes as $node)
-		{
-			$attr = isset($node['@attributes']) ? $node['@attributes'] : array();
-
-			$folder = isset($attr['folder'])      ? trim($attr['folder'])       : '';
-			$org    = isset($attr['organization']) ? trim($attr['organization']) : '';
-			$repo   = isset($attr['repo'])         ? trim($attr['repo'])         : '';
-			$branch = isset($attr['branch'])       ? trim($attr['branch'])       : 'main';
-
-			// Required fields — skip and notify if missing
-			if (empty($folder))
-			{
-				e107::getMessage()->addDebug('pluginpack.xml: entry missing folder attribute, skipped.');
-				continue;
-			}
-
-			if (empty($org) || empty($repo))
-			{
-				e107::getMessage()->addDebug('pluginpack.xml: entry "' . $folder . '" missing organization or repo, skipped.');
-				continue;
-			}
-
-			// Reject poisoned path segments before they can be interpolated into any
-			// remote URL (prevents redirecting fetches off raw.githubusercontent.com).
-			if (!$this->isValidSegment($folder) || !$this->isValidSegment($org)
-				|| !$this->isValidSegment($repo) || !$this->isValidSegment($branch))
-			{
-				e107::getMessage()->addDebug('pluginpack.xml: entry "' . $folder . '" has an invalid path segment, skipped.');
-				continue;
-			}
-
-			// Compatibility gate
-			$compat = isset($attr['compatibility']) ? trim($attr['compatibility']) : '';
-
-			if (!empty($compat) && defined('e_VERSION') && version_compare(e_VERSION, $compat, '<'))
-			{
-				continue;
-			}
- 
-			// Registry-level name and description (may be overridden by plugin.xml)
-			$registryName = isset($attr['name']) ? trim($attr['name']) : $folder;
-			$registryDesc = $this->extractRegistryDescription($node);
-
-			$infourl = isset($attr['infourl']) ? trim($attr['infourl']) : '';
-
-			$downloadUrl = $this->buildDownloadUrl($org, $repo, $branch);
- 
-			// Fetch remote plugin.xml — version, author, icon, category, date
-			$remote = $this->fetchRemotePluginXml($org, $repo, $branch, $folder, $type);
-
-			// Registry-rules runtime gate — see REGISTRY-RULES.md
-			$installable  = $this->validateRemote($remote);
-			$installError = $installable ? '' : $this->getValidationError($remote, $folder);
-
-			if (!$installable)
-			{
-				e107::getMessage()->addDebug('pluginpack: entry "' . $folder . '" not installable — ' . $installError);
-			}
-
-			// plugin.xml wins over registry for shared fields
-			$name         = (!empty($remote['name']))          ? $remote['name']          : $registryName;
-			$desc         = (!empty($remote['description']))   ? $remote['description']   : $registryDesc;
-			$version      = (!empty($remote['version']))       ? $remote['version']       : '';
-			$author       = (!empty($remote['author']))        ? $remote['author']        : '';
-			$authorURL    = (!empty($remote['authorURL']))     ? $remote['authorURL']     : $infourl;
-			$date         = (!empty($remote['date']))          ? $remote['date']          : '';
-			$category     = (!empty($remote['category']))      ? $remote['category']      : '';
-			$icon         = (!empty($remote['icon']))          ? $remote['icon']          : '';
-			$remoteCompat = (!empty($remote['compatibility'])) ? $remote['compatibility'] : $compat;
- 
-			$result['data'][$i] = array(
-				'icon'          => $icon,
-				'name'          => $name,
-				'folder'        => $folder,
-				'version'       => $version,
-				'author'        => $author,
-				'authorURL'     => $authorURL,
-				'date'          => $date,
-				'compatibility' => $remoteCompat,
-				'url'           => $downloadUrl,
-				'urlView'       => $infourl,
-				'description'   => $desc,
-				'category'      => $category,
-				'thumbnail'     => $icon,
-				'featured'      => 0,
-				'screenshots'   => '',
-				'livedemo'      => '',
-				'price'         => '',
-				'installable'   => $installable,
-				'install_error' => $installError,
-				'params'        => array(
-					'organization' => $org,
-					'repo'         => $repo,
-					'branch'       => $branch,
-					'type'         => $type,
-					'mode'         => 'github',
-				),
-			);
-
-			$i++;
-		}
-
-		$result['params']['count'] = $i;
-
-		return $result;
+		$this->setAuthKey($this->makeAuthKey($username, $password, true));	
+		return $this;
 	}
-
+	
+	/**
+	 * Set authorization key
+	 * @deprecated subject of removal
+	 */
+	public function setAuthKey($authkey)
+	{
+		$this->adapter->setAuthKey($authkey);	
+		return $this;
+	}
 
 	/**
-	 * Check that a remote plugin.xml payload satisfies the runtime registry rules.
-	 * Returns false for null/empty/non-array input or when required fields are missing.
-	 *
-	 * @param  mixed $remote  Result from fetchRemotePluginXml()
 	 * @return bool
 	 */
-	private function validateRemote($remote)
+	public function hasAuthKey()
 	{
-		if (empty($remote) || !is_array($remote))
-		{
-			return false;
-		}
-
-		if (empty($remote['name']) || empty($remote['version']))
-		{
-			return false;
-		}
-
-		return true;
+		return $this->adapter->hasAuthKey();
 	}
-
-
+	
 	/**
-	 * Human-readable validation error for the disabled Install button tooltip.
-	 *
-	 * @param  mixed  $remote  Result from fetchRemotePluginXml()
-	 * @param  string $folder  Registry folder (used in the not-found message)
-	 * @return string          Empty string if $remote is valid
+	 * Make authorization key from user credentials
+	 * @deprecated subject of removal
 	 */
-	private function getValidationError($remote, $folder = '{folder}')
+	public function makeAuthKey($username, $password = '', $plain = false)
 	{
-		if (empty($remote) || !is_array($remote))
-		{
-			$path = 'e107_plugins/' . $folder . '/plugin.xml';
-			return 'plugin.xml not found at expected path (' . $path . ')';
-		}
-
-		$missing = array();
-
-		if (empty($remote['name']))
-		{
-			$missing[] = 'name';
-		}
-
-		if (empty($remote['version']))
-		{
-			$missing[] = 'version';
-		}
-
-		if (empty($missing))
-		{
-			return '';
-		}
-
-		return 'plugin.xml is missing required fields: ' . implode(', ', $missing);
+		$now 	= gmdate('y-m-d H');
+		if($plain && !empty($password)) $password = md5($password);
+		return sha1($username.$password.$now);
 	}
 
 
+
 	/**
-	 * Fetch remote plugin.xml and return displayable fields.
-	 * Uses e107 xmlClass — HTTP via e107::getFile()->getRemoteContent().
-	 *
-	 * Returns null if unreachable or unparseable.
-	 *
-	 * @param  string $org
-	 * @param  string $repo
-	 * @param  string $branch
-	 * @param  string $folder
-	 * @param  string $type   'plugin' or 'theme'
-	 * @return array|null
+	 * Have the admin enter their e107.org login details in order to create the authorization key. 
+	 * @deprecated subject of removal
+	 */	
+	public function renderLoginForm()
+	{
+		
+	$text =	'
+          <div class="" id="loginModal">
+		    <div class="well">
+		    <img src="'.e_IMAGE_ABS.'admin_images/credits_logo.png" alt="" style="margin-bottom:15px" />
+		    <ul class="nav nav-tabs">
+			    <li class="active"><a href="#login" data-toggle="tab" data-bs-toggle="tab">Login</a></li>
+			    <li><a href="#create" data-toggle="tab" data-bs-toggle="tab">Create Account</a></li>
+		    </ul>
+		    <div id="myTabContent" class="tab-content">
+		    <div class="tab-pane active in" id="login">
+		    <form class="form-horizontal" action="" method="POST">
+			    <fieldset>
+				    <div id="legend">
+				    	<legend class="">Login</legend>
+				    </div>
+				    
+					<div class="control-group">
+					    <label class="control-label" for="username">Username</label>
+						<div class="controls">
+						   	<input type="text" id="username" name="username" placeholder="" class="input-xlarge">
+						</div>
+					</div>
+					
+				    <div class="control-group">
+					    <label class="control-label" for="password">Password</label>
+					    <div class="controls">
+					    	<input type="password" id="password" name="password" placeholder="" class="input-xlarge">
+					    </div>
+				    </div>
+				    
+				    <div class="control-group">
+					    <div class="controls">
+					    	<button class="btn btn-success">Login</button>
+					    </div>
+				    </div>
+				    
+			    </fieldset>
+		    </form>
+		    </div>';
+	
+	//TODO Use Form handler for INPUT tags. 
+	//XXX TBD OR do we just redirect to the signup page on the website, in an iframe? 
+			
+	$text .=	'
+		    <div class="tab-pane fade" id="create">
+		    <form class="form-horizontal" id="tab">
+		     <div class="control-group">
+		    	<label class="control-label">Username</label>
+		     	<div class="controls">
+		    		<input type="text" value="" class="input-xlarge">
+		    	</div>
+		    </div>
+		     <div class="control-group">
+		    	<label class="control-label">Password</label>
+		    	 <div class="controls">
+		   		 <input type="password" value="" class="input-xlarge">
+		    	</div>
+		    </div>
+		     <div class="control-group">
+		    	<label class="control-label">Email</label>
+		    	 <div class="controls">
+		    	<input type="text" value="" class="input-xlarge">
+		    	</div>
+		    </div>
+		    <div class="control-group">
+			    <div class="controls">
+			   	 <button class="btn btn-primary">Create Account</button>
+			    </div>
+		    </div>
+		    </form>
+		    </div>
+		    </div>
+		    </div>
+		  ';	
+		
+		return $text;
+	}
+
+	/**
+	 * Retrieve currently used adapter
+	 * @param e_marketplace_adapter_abstract
+	 * @return \e_marketplace_adapter_abstract
 	 */
-	public function fetchRemotePluginXml($org, $repo, $branch, $folder, $type = 'plugin')
+	public function adapter()
 	{
-		$url = $this->buildRawUrl($org, $repo, $branch, $folder, $type);
-
-		if ($url === '')
+		if(null === $this->adapter)
 		{
-			e107::getMessage()->addDebug('pluginpack: invalid path segment — plugin.xml not fetched.');
-			return null;
+			$className = 'e_marketplace_adapter_'.$this->_adapter_name; 
+			$this->adapter = new $className();
 		}
-
-		$xml  = e107::getXml();
-		$data = $xml->getRemoteFile($url);
- 
-		if (empty($data))
-		{
-			e107::getMessage()->addDebug('pluginpack: could not fetch plugin.xml — ' . $url);
-			return null;
-		}
-
-		// false = xml2array (advanced) so attributes come under '@attributes'
-		$parsed = $xml->parseXml($data, false);
-
-		if (empty($parsed))
-		{
-			e107::getMessage()->addDebug('pluginpack: invalid plugin.xml — ' . $url);
-			return null;
-		}
-
-	// Root attributes
-	$rootAttr = isset($parsed['@attributes']) ? $parsed['@attributes'] : array();
-
-	// <author name="" url="" />
-	$authorAttr = isset($parsed['author']['@attributes']) ? $parsed['author']['@attributes'] : array();
-
-	// <description> — má @value
-	$desc = '';
-	if (isset($parsed['description']['@value']))
-	{
-		$desc = trim($parsed['description']['@value']);
-	}
-
-	// <summary> — fallback ak nie je description
-	if (empty($desc) && isset($parsed['summary']['@value']))
-	{
-		$desc = trim($parsed['summary']['@value']);
-	}
-
-	// <category> — priamy string
-	$category = isset($parsed['category']) ? trim($parsed['category']) : '';
- 
-		// // Icon from <adminLinks><link icon="" iconSmall="" primary="true">
-	$base = $this->buildRawBase($org, $repo, $branch, $folder, $type);
-
-	// Screenshots / icon — build candidate URL then validate (http/https only).
-	// The filename segment is attacker-controlled (remote <screenshots><image>);
-	// validation drops anything that could break out of the <img src='...'> attribute.
-	$screenshot = '';
-	if ($base !== '' && isset($parsed['screenshots']['image'][0]) && is_string($parsed['screenshots']['image'][0]))
-	{
-		$candidate  = rtrim($base, '/') . '/' . ltrim(trim($parsed['screenshots']['image'][0]), '/');
-		$screenshot = $this->sanitizeRemoteUrl($candidate);
-	}
-
-		// Sanitise at the trust boundary — every remote field leaves this handler clean.
-		$tp = e107::getParser();
-
-		return array(
-			'name'          => isset($rootAttr['name'])          ? $tp->toText(trim($rootAttr['name']))          : '',
-			'version'       => isset($rootAttr['version'])       ? $tp->toText(trim($rootAttr['version']))       : '',
-			'date'          => isset($rootAttr['date'])          ? $tp->toText(trim($rootAttr['date']))          : '',
-			'compatibility' => isset($rootAttr['compatibility']) ? $tp->toText(trim($rootAttr['compatibility'])) : '',
-			'author'        => isset($authorAttr['name'])        ? $tp->toText(trim($authorAttr['name']))        : '',
-			'authorURL'     => isset($authorAttr['url'])         ? $this->sanitizeRemoteUrl($authorAttr['url'])  : '',
-			'description'   => $tp->toText($desc),
-			'category'      => $category,
-			'icon'          => $screenshot,
-		);
-	}
-
-
-	/**
-	* Extract <description> text from the registry node produced by
-	* xmlClass::loadXMLfile($file, 'advanced'). xml2array yields any
-	* of four shapes depending on attributes and sibling count:
-	*   - string
-	*   - array with '@value' key
-	*   - indexed array of strings
-	*   - indexed array of arrays with '@value' keys
-	*
-	* @param  array $node  Single <plugin> or <theme> node from registry
-	* @return string       Trimmed description or '' if none usable
-	*/
-	private function extractRegistryDescription($node)
-	{
-		if (!isset($node['description']))
-		{
-			return '';
-		}
-
-		$d = $node['description'];
-
-		if (is_string($d))
-		{
-			return trim($d);
-		}
-
-		if (is_array($d))
-		{
-			if (isset($d['@value']))
-			{
-				return trim($d['@value']);
-			}
-
-			if (isset($d[0]))
-			{
-				$first = $d[0];
-
-				if (is_string($first))
-				{
-					return trim($first);
-				}
-
-				if (is_array($first) && isset($first['@value']))
-				{
-					return trim($first['@value']);
-				}
-			}
-		}
-
-		return '';
+		return $this->adapter;
 	}
 
 	/**
-	 * Extract icon URL from parsed adminLinks.
-	 * Priority: primary link icon > any link icon > primary iconSmall > any iconSmall
-	 *
-	 * xmlClass 'advanced' (xml2array) produces:
-	 *   multiple links: $parsed['adminLinks']['link'][n]['@attributes']['icon']
-	 *   single link:    $parsed['adminLinks']['link']['@attributes']['icon']
-	 *
-	 * @param  array  $parsed  Parsed plugin.xml array
-	 * @param  string $base    Raw GitHub base URL for plugin folder
-	 * @return string          Full URL or empty string
+	 * Retrieve currently used adapter
+	 * @param $method
+	 * @param $data
+	 * @param bool $apply
+	 * @return mixed
 	 */
-	private function extractIcon($parsed, $base)
+	public function call($method, $data, $apply = true)
 	{
-		if (empty($parsed['screenshots']['image']))
+		if(E107_DEBUG_LEVEL > 0)
 		{
-			return '';
+			e107::getDebug()->log("Calling e107.org  using <b> ".$this->_adapter_name."</b> adapter");
 		}
-
-		 $icon = trim($parsed['screenshots']['image'][0]);
- 
-		 
-
-		$path = $icon;
-
-		if (empty($path))
+		return $this->adapter()->call($method, $data, $apply);
+	}
+	
+	/**
+	 * Adapter proxy
+	 */
+	public function download($id, $mode, $type)
+	{
+		return $this->adapter()->download($id, $mode, $type);
+	}
+	
+	/**
+	 * Direct adapter()->call() execution - experimental stage
+	 */
+	public function __call($method, $arguments)
+	{
+		if(strpos($method, 'get') === 0 || strpos($method, 'do') === 0)
 		{
-			return '';
+			return $this->adapter()->call($method, $arguments);
 		}
- 
-		return rtrim($base, '/') . '/' . ltrim($path, '/');
+		throw new Exception("Error Processing Request", 10);
+	}
+
+
+	/**
+	 *
+	 */
+	public function __destruct()
+	{
+		$this->adapter = null;
+		//echo "Adapter destroyed", PHP_EOL;
 	}
 
 
@@ -521,152 +303,57 @@ class e_marketplace
 
 
 	/**
-	 * Get version list for installed plugins — used by admin.php update checks.
-	 * Returns array keyed by folder, matching original getVersionList() output.
-	 *
-	 * @param  string $type
-	 * @return array  ['folder' => ['version'=>'', 'name'=>'', 'url'=>'', 'download'=>'', 'icon'=>'']]
+	 * @param $type
+	 * @return array|string[]
 	 */
-	public function getVersionList($type = 'plugin')
+	public function getVersionList($type='plugin')
 	{
-		$xdata  = $this->getRegistryList($type);
-		$result = array();
- 
-		foreach ($xdata['data'] as $entry)
-		{
-			$folder = $entry['folder'];
+		$cache = e107::getCache();
+		$cache->setMD5('_', false);
 
-			if (empty($folder) || empty($entry['version']))
+		$tag = 'Versions_'.$type;
+
+		if($data = $cache->retrieve($tag,(60 * 12), true, true))
+		{
+			return e107::unserialize($data);
+		}
+
+	//	$mp = $this->getMarketplace();
+	//	$mp->generateAuthKey($e107SiteUsername, $e107SiteUserpass);
+		e107::getDebug()->log("Retrieving ".$type." version list from e107.org");
+
+		$xdata = $this->call('getList', array(
+			'type' => $type,
+			'params' => array('limit' => 200, 'search' => null, 'from' => 0)
+		));
+
+		$arr = array();
+
+		if(!empty($xdata['data']))
+		{
+
+			foreach($xdata['data'] as $row)
 			{
-				continue;
+				$k = $row['folder'];
+				$arr[$k] = $row;
 			}
 
-			$result[$folder] = array(
-				'version'  => $entry['version'],
-				'name'     => $entry['name'],
-				'url'      => $entry['urlView'],
-				'download' => $entry['url'],
-				'icon'     => $entry['icon'],
-			);
 		}
 
-		return $result;
-	}
 
-
-	/**
-	 * Validate a GitHub path segment (organization / repo / branch / folder)
-	 * before interpolating it into a remote URL. Anything outside the allowed
-	 * character set is rejected so a poisoned pluginpack.xml cannot redirect
-	 * fetches off raw.githubusercontent.com or inject path traversal.
-	 *
-	 * @param  string $segment
-	 * @return bool
-	 */
-	private function isValidSegment($segment)
-	{
-		return is_string($segment) && $segment !== '' && (bool) preg_match('/^[A-Za-z0-9._-]+$/', $segment);
-	}
-
-
-	/**
-	 * Validate an untrusted remote URL (icon / screenshot / author URL).
-	 * Accepts only syntactically valid absolute http(s) URLs. Rejects
-	 * javascript:, data:, schemeless values and any attribute-breaking
-	 * characters (quotes, spaces, angle brackets — all refused by
-	 * FILTER_VALIDATE_URL). Returns '' when invalid so callers can drop it.
-	 *
-	 * @param  string $url
-	 * @return string
-	 */
-	private function sanitizeRemoteUrl($url)
-	{
-		$url = trim((string) $url);
-
-		if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false)
+		if(empty($arr))
 		{
-			return '';
+			$arr = array('-unable-to-connect'); // make sure something is cached so further lookups stop.
 		}
 
-		$scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+		$data = e107::serialize($arr, 'json');
+		$cache->set($tag, $data, true, true, true);
 
-		if ($scheme !== 'http' && $scheme !== 'https')
-		{
-			return '';
-		}
+		return $arr;
 
-		return $url;
 	}
 
 
-	/**
-	 * Build zip download URL.
-	 * https://github.com/{org}/{repo}/archive/refs/heads/{branch}.zip
-	 *
-	 * @param  string $org
-	 * @param  string $repo
-	 * @param  string $branch
-	 * @return string  Empty string when any segment is invalid.
-	 */
-	private function buildDownloadUrl($org, $repo, $branch)
-	{
-		if (!$this->isValidSegment($org) || !$this->isValidSegment($repo) || !$this->isValidSegment($branch))
-		{
-			return '';
-		}
-
-		return 'https://github.com/' . $org . '/' . $repo
-			. '/archive/refs/heads/' . $branch . '.zip';
-	}
-
-
-	/**
-	 * Build raw GitHub base URL for a plugin folder.
-	 * https://raw.githubusercontent.com/{org}/{repo}/refs/heads/{branch}/e107_plugins/{folder}
-	 *
-	 * @param  string $org
-	 * @param  string $repo
-	 * @param  string $branch
-	 * @param  string $folder
-	 * @param  string $type
-	 * @return string
-	 */
-	private function buildRawBase($org, $repo, $branch, $folder, $type = 'plugin')
-	{
-		if (!$this->isValidSegment($org) || !$this->isValidSegment($repo)
-			|| !$this->isValidSegment($branch) || !$this->isValidSegment($folder))
-		{
-			return '';
-		}
-
-		$dir = ($type === 'theme') ? 'e107_themes' : 'e107_plugins';
-
-		return 'https://raw.githubusercontent.com/'
-			. $org . '/' . $repo . '/refs/heads/' . $branch
-			. '/' . $dir . '/' . $folder;
-	}
-
-	/**
-	 * Build raw URL to plugin.xml inside the repo.
-	 *
-	 * @param  string $org
-	 * @param  string $repo
-	 * @param  string $branch
-	 * @param  string $folder
-	 * @param  string $type
-	 * @return string
-	 */
-	private function buildRawUrl($org, $repo, $branch, $folder, $type = 'plugin')
-	{
-		$base = $this->buildRawBase($org, $repo, $branch, $folder, $type);
-
-		if ($base === '')
-		{
-			return '';
-		}
-
-		return $base . '/plugin.xml';
-	}
 
 }
 
@@ -680,8 +367,7 @@ abstract class e_marketplace_adapter_abstract
 	 * e107.org download URL
 	 * @var string
 	 */
-	//protected $downloadUrl = 'https://e107.org/request/';
-	protected $downloadUrl = '';
+	protected $downloadUrl = 'https://e107.org/request/';
 	
 	/**
 	 * e107.org service URL [adapter implementation required]
@@ -906,8 +592,7 @@ class e_marketplace_adapter_wsdl extends e_marketplace_adapter_abstract
 	 * e107.org WSDL URL
 	 * @var string
 	 */
-	//protected $serviceUrl = 'https://e107.org/service?wsdl';
-	protected $serviceUrl = '';
+	protected $serviceUrl = 'https://e107.org/service?wsdl';
 	
 	/**
 	 * Request method POST || GET
@@ -978,70 +663,70 @@ class e_marketplace_adapter_wsdl extends e_marketplace_adapter_abstract
 	 */
 	public function _call($method, $args, $apply = true)
 	{
-		// $result = array(
-		// 	'data' => null,
-		// 	//'error'=> array('code' => 0, 'message' => null)
-		// );
-		// $ret = null;
+		$result = array(
+			'data' => null,
+			//'error'=> array('code' => 0, 'message' => null)
+		);
+		$ret = null;
 		
-		// // authorize on every call, service class decides what to do on every method call
-		// $auth = new stdClass;
-		// $auth->authKey = $this->getAuthKey();
-		// $header = new SoapHeader('https://e107.org/services/auth', 'checkAuthHeader', $auth);
+		// authorize on every call, service class decides what to do on every method call
+		$auth = new stdClass;
+		$auth->authKey = $this->getAuthKey();
+		$header = new SoapHeader('https://e107.org/services/auth', 'checkAuthHeader', $auth);
 
-		// if(!is_object($this->client))
-		// {
-		// 	$result['exception'] = array();
-		// 	$result['exception']['message'] = "Unable to connect at this time.";
-		// 	return $result;
-		// }
+		if(!is_object($this->client))
+		{
+			$result['exception'] = array();
+			$result['exception']['message'] = "Unable to connect at this time.";
+			return $result;
+		}
 		
-		// try
-		// {
+		try
+		{
 
 
-		// 	$this->client->__setSoapHeaders(array($header));
-		// 	if(is_array($args) && $apply)
-		// 	{
-		// 		$ret = call_user_func_array(array($this->client, $method), $args);
-		// 	}
-		// 	else $ret = $this->client->$method($args);
+			$this->client->__setSoapHeaders(array($header));
+			if(is_array($args) && $apply)
+			{
+				$ret = call_user_func_array(array($this->client, $method), $args);
+			}
+			else $ret = $this->client->$method($args);
 			
-		// 	$result = $ret;
-		// 	if(isset($ret['exception']))
-		// 	{
-		// 		$result['exception'] = array();
-		// 		$result['exception']['message'] = "API Exception [call::{$method}]: (#".$ret['exception']['code'].") ".$ret['exception']['message'];
-		// 		$result['exception']['code'] 	= 'API_'.$ret['exception']['code'];
-		// 	}
-		// 	unset($ret);
-		// }
-		// catch(SoapFault $e)
-		// {
-		// 	$result['exception']['message'] = "SoapFault Exception [call::{$method}]: (#".$e->faultcode.") ".$e->faultstring;
-		// 	$result['exception']['code'] 	= 'SOAP_'.$e->faultcode;
-		// 	if(E107_DEBUG_LEVEL)
-		// 	{
-		// 		$result['exception']['trace'] = $e->getTraceAsString(); 
-		// 		$result['exception']['message'] .= ". Header fault: ".($e->headerfault ? $e->headerfault : 'n/a');
-		// 	}
-		// }
-		// catch(Exception $e)
-		// {
-		// 	$result['exception']['message'] = "Generic Exception [call::{$method}]: (#".$e->getCode().") ".$e->getMessage();
-		// 	$result['exception']['code'] 	= 'GEN_'.$e->getCode();
-		// 	if(E107_DEBUG_LEVEL)
-		// 	{
-		// 		$result['debug']['trace'] = $e->getTraceAsString(); 
-		// 	}
-		// }
-		// if(E107_DEBUG_LEVEL)
-		// {
-		// 	$result['debug']['response'] = $this->client->__getLastResponse(); 
-		// 	$result['debug']['request'] = $this->client->__getLastRequest(); 
-		// 	$result['debug']['request_header'] = $this->client->__getLastRequestHeaders(); 
-		// }
-		// return $result;
+			$result = $ret;
+			if(isset($ret['exception']))
+			{
+				$result['exception'] = array();
+				$result['exception']['message'] = "API Exception [call::{$method}]: (#".$ret['exception']['code'].") ".$ret['exception']['message'];
+				$result['exception']['code'] 	= 'API_'.$ret['exception']['code'];
+			}
+			unset($ret);
+		}
+		catch(SoapFault $e)
+		{
+			$result['exception']['message'] = "SoapFault Exception [call::{$method}]: (#".$e->faultcode.") ".$e->faultstring;
+			$result['exception']['code'] 	= 'SOAP_'.$e->faultcode;
+			if(E107_DEBUG_LEVEL)
+			{
+				$result['exception']['trace'] = $e->getTraceAsString(); 
+				$result['exception']['message'] .= ". Header fault: ".($e->headerfault ? $e->headerfault : 'n/a');
+			}
+		}
+		catch(Exception $e)
+		{
+			$result['exception']['message'] = "Generic Exception [call::{$method}]: (#".$e->getCode().") ".$e->getMessage();
+			$result['exception']['code'] 	= 'GEN_'.$e->getCode();
+			if(E107_DEBUG_LEVEL)
+			{
+				$result['debug']['trace'] = $e->getTraceAsString(); 
+			}
+		}
+		if(E107_DEBUG_LEVEL)
+		{
+			$result['debug']['response'] = $this->client->__getLastResponse(); 
+			$result['debug']['request'] = $this->client->__getLastRequest(); 
+			$result['debug']['request_header'] = $this->client->__getLastRequestHeaders(); 
+		}
+		return $result;
 	}
 	
 	/**
@@ -1091,8 +776,8 @@ class e_marketplace_adapter_xmlrpc extends e_marketplace_adapter_abstract
 	 * e107.org XML-rpc service
 	 * @var xmlClass
 	 */
-	//protected $serviceUrl = 'https://e107.org/xservice';
-	protected $serviceUrl = '';
+	protected $serviceUrl = 'https://e107.org/xservice';
+	
 	/**
 	 * Request method POST || GET
 	 * @var string
@@ -1358,26 +1043,26 @@ class eAuth
 	 * e107.org manage client credentials (Consumer Key and Secret) URL 
 	 * @var string
 	 */
-	//protected $eauthConsumerUrl = 'https://e107.org/eauth/client';
-	protected $eauthConsumerUrl = '';
+	protected $eauthConsumerUrl = 'https://e107.org/eauth/client';
+	
 	/**
 	 * URL used to make temporary credential request (Request Token and Secret) to e107.org before the authorization phase
 	 * @var string
 	 */
-	protected $eauthRequestUrl = '';
-	//protected $eauthRequestUrl = 'https://e107.org/eauth/initialize';
+	protected $eauthRequestUrl = 'https://e107.org/eauth/initialize';
+	
 	/**
 	 * URL used to redirect and authorize the resource owner (user) on e107.org using temporary (request) token
 	 * @var string
 	 */
-	protected $eauthAuthorizeUrl = '';
-//	protected $eauthAuthorizeUrl = 'https://e107.org/eauth/authorize';
+	protected $eauthAuthorizeUrl = 'https://e107.org/eauth/authorize';
+	
 	/**
 	 * URL used to obtain token credentials (Access Token and Secret) from e107.org using temporary (request) token
 	 * @var string
 	 */
-//	protected $eauthAccessUrl = 'https://e107.org/eauth/token';
-	protected $eauthAccessUrl = '';	
+	protected $eauthAccessUrl = 'https://e107.org/eauth/token';
+	
 	/**
 	 * Public client key (generated and obtained from e107.org)
 	 * @var string

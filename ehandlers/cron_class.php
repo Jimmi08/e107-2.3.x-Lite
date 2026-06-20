@@ -9,7 +9,7 @@
 |     Released under the terms and conditions of the
 |     GNU General Public License (http://gnu.org).
 |
-|     $Source: /cvs_backup/e107_0.8/e107_handlers/cron_class.php,v $
+|     $Source: /cvs_backup/e107_0.8/ehandlers/cron_class.php,v $
 |     $Revision$
 |     $Date$
 |     $Author$

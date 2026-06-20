@@ -8,7 +8,7 @@
  *
  * e107 Mailout - mail database API and utility routines
  *
- * $URL: https://e107.svn.sourceforge.net/svnroot/e107/trunk/e107_0.8/e107_handlers/redirection_class.php $
+ * $URL: https://e107.svn.sourceforge.net/svnroot/e107/trunk/e107_0.8/ehandlers/redirection_class.php $
  * $Id: redirection_class.php 11922 2010-10-27 11:31:18Z secretr $
  * $Revision: 12125 $
 */
@@ -1257,7 +1257,7 @@ class e107MailManager
 		}
 
 
-		$result = $this->db->select('mail_recipients', 'mail_target_id', "`mail_detail_id`=".(int) $handle." AND `mail_recipient_email`='".$this->db->escape($mailRecip['mail_recipient_email'])."'");
+		$result = $this->db->createQueryBuilder()->select('mail_target_id')->from('mail_recipients')->where('mail_detail_id', (int) $handle)->where('mail_recipient_email', $mailRecip['mail_recipient_email'])->execute();
 
 
 		if ($result === false)
@@ -1720,9 +1720,15 @@ class e107MailManager
 		{
 			$query .= ' WHERE ' . implode(' AND ', $filters);
 		}
-		if ($orderField && preg_match('/^[A-Za-z0-9_]+$/', (string) $orderField))
+		if ($orderField)
 		{
-			$query .= " ORDER BY `{$orderField}`";
+			// $orderField is a column identifier (cannot be bound); validate it.
+			$safeOrderField = $this->db->quoteIdentifier($orderField);
+			if ($safeOrderField === false)
+			{
+				$safeOrderField = '`mail_source_id`';
+			}
+			$query .= " ORDER BY " . $safeOrderField;
 		}
 		if ($sortOrder)
 		{
@@ -1798,9 +1804,15 @@ class e107MailManager
 
 		// TODO: Implement filters if needed
 		$query = "SELECT SQL_CALC_FOUND_ROWS {$fields} FROM `#mail_recipients` WHERE `mail_detail_id`={$handle}";
-		if ($orderField && preg_match('/^[A-Za-z0-9_]+$/', (string) $orderField))
+		if ($orderField)
 		{
-			$query .= " ORDER BY `{$orderField}`";
+			// $orderField is a column identifier (cannot be bound); validate it.
+			$safeOrderField = $this->db->quoteIdentifier($orderField);
+			if ($safeOrderField === false)
+			{
+				$safeOrderField = '`mail_source_id`';
+			}
+			$query .= " ORDER BY " . $safeOrderField;
 		}
 		if ($sortOrder)
 		{
@@ -1889,7 +1901,7 @@ class e107MailManager
 	 *
 	 * @return boolean TRUE if either added to queue, or sent, successfully (does NOT indicate receipt). FALSE on any error
 	 *        (Note that with a small number of recipients FALSE indicates that one or more emails weren't sent - some may have been sent successfully)
-	 * @see e107_themes/email_template.php
+	 * @see ethemes/email_template.php
 	 *
 	 *    The template (or other body text) may also contain field names in the form |USER_NAME| (as used in the bulk mailer edit page). These are
 	 *    filled in from $templateData - field name corresponds to the array index name (case-sensitive)

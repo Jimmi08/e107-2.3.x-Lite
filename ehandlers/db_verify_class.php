@@ -8,7 +8,7 @@
  *
  * Administration - DB Verify Class
  *
- * $URL: /cvs_backup/e107_0.8/e107_admin/db_verify.php,v $
+ * $URL: /cvs_backup/e107_0.8/eadmin/db_verify.php,v $
  * $Revision: 12255 $
  * $Id: 2011-06-07 17:16:42 -0700 (Tue, 07 Jun 2011) $
  * $Author: e107coders $
@@ -1127,19 +1127,21 @@ class db_verify
 			foreach($file as $table => $val)
 			{
 
-				// $table is an attacker-controllable POST array key used in identifier position; reject non-identifiers.
-				if(!preg_match('/^[A-Za-z0-9_]+$/', (string) $table))
+				$id = $this->getId($this->sqlFileTables[$j]['tables'], $table);
+
+				// $table is an attacker-controllable POST array key: reject anything that
+				// is not a known table identifier before it reaches the SQL string.
+				if($id === null || !preg_match('/^[A-Za-z0-9_]+$/D', (string) $table))
 				{
 					continue;
 				}
 
-				$id = $this->getId($this->sqlFileTables[$j]['tables'],$table);
 				$toFix = count($val);
 
 				foreach($val as $field => $fixes)
 				{
-					// $field is also a POST array key used in identifier position; reject non-identifiers.
-					if(!preg_match('/^[A-Za-z0-9_]+$/', (string) $field))
+					// $field is likewise a POST array key; only allow plain identifiers.
+					if(!preg_match('/^[A-Za-z0-9_]+$/D', (string) $field))
 					{
 						continue;
 					}
