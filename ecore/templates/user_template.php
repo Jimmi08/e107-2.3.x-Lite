@@ -8,7 +8,7 @@
  *
  *
  *
- * $Source: /cvs_backup/e107_0.8/e107_themes/templates/user_template.php,v $
+ * $Source: /cvs_backup/e107_0.8/ethemes/templates/user_template.php,v $
  * $Revision$
  * $Date$
  * $Author$
@@ -91,7 +91,7 @@ if (!defined('e107_INIT')) { exit; }
 	$USER_WRAPPER['view']['USER_SIGNATURE']         = '<div>{---}</div>';
 	$USER_WRAPPER['view']['USER_RATING']            = '<div>{---}</div>';
 	$USER_WRAPPER['view']['USER_SENDPM']            = '<div>{---}</div>';
-	 
+	$USER_WRAPPER['view']['PROFILE_COMMENTS']       = '<div class="clearfix">{---}</div>';
 //	$USER_WRAPPER['view']['PROFILE_COMMENT_FORM']   = '{---} </div>';
 
 	$USER_TEMPLATE['view'] 				= '
@@ -148,7 +148,9 @@ if (!defined('e107_INIT')) { exit; }
 		
 	    </div>
 	</div>
- 
+		<!-- Start Comments -->
+	  {PROFILE_COMMENTS}
+	  <!-- End Comments -->
 	 
 	';
 

@@ -190,7 +190,7 @@ unset($e_headers);
 /** @experimental - subject to change at any time */
 if($schema = e107::schema())
 {
-	echo '<script type="application/ld+json">'.$schema."</script>\n";
+	echo $schema;
 }
 
 unset($schema);
@@ -253,9 +253,8 @@ if (is_array($pref['e_meta_list']))
 	unset($ret);
 }
 
-// --------  Generate Apple Touch Icon ---------
-echo renderFavicon();
 
+echo $e_js->renderFavicon();
 
 
 // Register Plugin specific CSS 
@@ -500,30 +499,7 @@ function renderMeta($type)
 	return $ret;
 }
 
-function renderFavicon()
-{
-	// ---------- Favicon ---------
-	if (file_exists(THEME."favicon.ico"))
-	{
-		return "<link rel='icon' href='".THEME_ABS."favicon.ico' type='image/x-icon' />\n<link rel='shortcut icon' href='".THEME_ABS."favicon.ico' type='image/xicon' />\n";
-	}
-	elseif(file_exists(e_MEDIA_ICON.'16x16_favicon.png'))
-	{
-		$iconSizes = [16 => 'icon',32 => 'icon',48 => 'icon',192 => 'icon',167 => 'apple-touch-icon',180 => 'apple-touch-icon'];
-		$text = '';
-		foreach($iconSizes as $size => $rel)
-		{
-			$sizes = $size.'x'.$size;
-			$text .= "<link rel='$rel' type='image/png' sizes='$sizes' href='".e_MEDIA_ICON_ABS.$sizes."_favicon.png'>\n";
-		}
-		return $text;
-	}
-	elseif (file_exists(e_BASE."favicon.ico"))
-	{
-		return "<link rel='icon' href='".SITEURL."favicon.ico' type='image/x-icon' />\n<link rel='shortcut icon' href='".SITEURL."favicon.ico' type='image/xicon' />\n";
-	}
 
-}
 // legay meta-tag checks.
 /*
 $isKeywords = e107::getUrl()->response()->getMetaKeywords();
@@ -820,7 +796,7 @@ e107::getDebug()->logTime('Render Layout');
 
 		$psc = array(
 			'magicSC'=>array(
-				//	'{THEME}'       => THEME_ABS, // moved to e107_core/shortcodes/single/
+				//	'{THEME}'       => THEME_ABS, // moved to ecore/shortcodes/single/
 					'{BODY_ONLOAD}' => $body_onload,
 					'{LAYOUT_ID}'   => 'layout-'.e107::getForm()->name2id(THEME_LAYOUT),
 					'THEME_LAYOUT'  => THEME_LAYOUT, // BC Fall-back: Catch and replace the missing constant- ony works with PHP < 8
@@ -859,7 +835,7 @@ e107::getDebug()->logTime('Render Other');
 
 	
 	//XXX TODO LAN in English.php 
-	echo "<noscript><div class='alert alert-block alert-error alert-danger'><strong>This web site requires that javascript be enabled. <a rel='external' href='https://activatejavascript.org'>Click here for instructions.</a>.</strong></div></noscript>";
+	echo "<noscript><div class='alert alert-block alert-error alert-danger'><strong>This web site requires that javascript be enabled. <a rel='external' href='https://enablejavascript.io'>Click here for instructions.</a>.</strong></div></noscript>";
 
 	if(deftrue('BOOTSTRAP'))
 	{

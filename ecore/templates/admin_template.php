@@ -8,7 +8,7 @@
  *
  * Admin template - _blank theme
  *
- * $Source: /cvs_backup/e107_0.8/e107_themes/_blank/admin_template.php,v $
+ * $Source: /cvs_backup/e107_0.8/ethemes/_blank/admin_template.php,v $
  * $Revision$
  * $Date$
  * $Author$
@@ -16,7 +16,6 @@
 */
 
 if (!defined('e107_INIT')) { exit(); }
-
 
 
 $ADMIN_TEMPLATE['nav']['start'] = '<ul class="nav nav-admin navbar-nav navbar-left">';
@@ -27,7 +26,7 @@ $ADMIN_TEMPLATE['nav']['button'] = '
 	<li class="dropdown">
 		<a class="dropdown-toggle navbar-admin-button"  role="button" data-toggle="dropdown" data-target="#" href="{LINK_URL}" title="{LINK_DESCRIPTION}">
 		 {LINK_IMAGE}
-		{LINK_TEXT}
+		<span class="hidenavsmall">{LINK_TEXT}</span>
 		</a> 
 		{SUB_MENU}
 	</li>
@@ -39,7 +38,7 @@ $ADMIN_TEMPLATE['nav']['button_active'] = '
 	<li class="dropdown active">
 		<a class="dropdown-toggle navbar-admin-button"  role="button" data-toggle="dropdown" data-target="#" href="{LINK_URL}" title="{LINK_DESCRIPTION}">
 		{LINK_IMAGE}
-		{LINK_TEXT}
+		<span class="hidenavsmall">{LINK_TEXT}</span>
 		</a>
 		{SUB_MENU}
 	</li>
@@ -51,13 +50,13 @@ $ADMIN_TEMPLATE['nav']['button_active'] = '
 // Leave Admin Area. 
 $ADMIN_TEMPLATE['nav']['button_enav_home'] = '
 	<li class="dropdown admin-nav-home">
-		<a class="dropdown-toggle nav-home-main" title="'.ADLAN_53.'" href="'.e_HTTP.'" >
-		 {LINK_IMAGE} {LINK_TEXT} 
-		 </a><a class="dropdown-toggle nav-home-caret" title="'.ADLAN_53.'" role="button" data-toggle="dropdown" data-target="#" href="{LINK_URL}" >
-		 <b class="caret"></b>
-		</a>
+		<a class="dropdown-toggle" title="'.ADLAN_53.'" role="button" data-toggle="dropdown" data-target="#" href="{LINK_URL}" >{LINK_IMAGE} {LINK_TEXT} 
+		 
+		<b class="caret"></b>
+		</a> 
 		{SUB_MENU}
 	</li>
+
 ';
 
 // Change Language
@@ -195,20 +194,37 @@ $ADMIN_TEMPLATE['header'] =  '
 			<a class="brand navbar-brand" href="'.e_ADMIN_ABS.'admin.php" title="'.LAN_RETURN_TO_FRONT_PANEL.'">
 				<img class="admin-logo" src="'.e_THEME_ABS.'bootstrap3/images/logo.webp" alt="e107"  />
 			</a>
+			<div class="hidenavbig">
+				{ADMIN_NAVIGATION=enav_logout}
+				{ADMIN_NAVIGATION=enav_language}
+				{ADMIN_NAVIGATION=enav_home}
+				
+				{ADMIN_MULTISITE}
+				{ADMIN_PM}
+				{ADMIN_DEBUG}
+				{ADMIN_PERM_EMULATION}
+				{ADMIN_NOTIFICATIONS}
+				
+				{ADMIN_UPDATE}
+			</div>
 		</div>
 		<div class="navbar-collapse collapse">
 			{ADMIN_NAVIGATION=no-main}
 			{ADMIN_NAVIGATION=enav_popover}
-			<div>
+				<div class="hidenavsmall">
 				{ADMIN_NAVIGATION=enav_logout}
 				{ADMIN_NAVIGATION=enav_language}
 				{ADMIN_NAVIGATION=enav_home}
+				
 				{ADMIN_MULTISITE}
 				{ADMIN_PM}
 				{ADMIN_DEBUG}
+				{ADMIN_NOTIFICATIONS}
+				{ADMIN_PERM_EMULATION}
 				{ADMIN_UPDATE}
-			</div>
+				</div>
 		</div>
+		
 	</div>
 </div>
 <div class="admin-container container-fluid {ADMIN_CONTAINER_LEGACY}">
@@ -276,7 +292,7 @@ $ADMIN_TEMPLATE['footer'] = '
 
 
 /* NEW ADMIN MENU TEMPLATE
- * see function e107::getNav()->admin() in e107_admin/header.php
+ * see function e107::getNav()->admin() in eadmin/header.php
  */
 $ADMIN_TEMPLATE['menu']['start'] = '
 <div class="nav-panel-body">
@@ -326,4 +342,4 @@ $ADMIN_TEMPLATE['menu']['heading'] = '<li class="nav-header sidebar-toggle-panel
 
 $ADMIN_TEMPLATE['menu']['divider'] = '<li role="separator" class="divider"><!-- --></li>';
 
-$ADMIN_TEMPLATE['menu']['caption'] = '<span>{ICON}</span><span>{CAPTION}</span>';
+$ADMIN_TEMPLATE['menu']['caption'] = '<span class="e-toggle-sidebar e-tip"  data-placement="right" title="Toggle" style="cursor:pointer">{ICON}</span><span class="sidebar-toggle-panel">{CAPTION}</span><span class="close e-toggle-sidebar sidebar-toggle-panel sidebar-toggle-switch">×</span>';

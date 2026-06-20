@@ -158,7 +158,7 @@ class login_shortcodes extends e_shortcode
 		{
 			$parm['label'] = LAN_LOGIN_8;
 		}
- 
+
 		return e107::getForm()->checkbox('autologin',1,false,$parm);
 
 	}
@@ -205,16 +205,11 @@ class login_shortcodes extends e_shortcode
 		if($this->userReg === 1)
 		{
 		  $class = (!empty($parm['class'])) ? "class='".$parm['class']."'" : "";
-
-			if (!isset($parm['label']))
-			{
-				$parm['label'] = LAN_LOGIN_11;
-			}
-
-		
-				
-
-				return "<a href='".e_SIGNUP."' ".$class.">" .$parm['label']."</a>";
+		  // LITE FEATURE: configurable label via {LOGIN_TABLE_SIGNUP_LINK:
+		  // label=Your custom text}. Upstream hardcodes the label; Lite
+		  // allows the shortcode caller to override.
+		  $label = !empty($parm['label']) ? $parm['label'] : LAN_LOGIN_11;
+			return "<a href='".e_SIGNUP."' ".$class.">".$label."</a>";
 		}
 
 		return null;
@@ -230,13 +225,12 @@ class login_shortcodes extends e_shortcode
 			return null;
 		}
 
-		if (!isset($parm['label']))
-		{
-			$parm['label'] = LAN_LOGIN_12;
-		}
-
-		$class = (!empty($parm['class'])) ? "class='".$parm['class']."'" : "";
-		return "<a href='".e_HTTP."fpw.php' ".$class.">". $parm['label']."</a>";
+        $class = (!empty($parm['class'])) ? "class='".$parm['class']."'" : "";
+		// LITE FEATURE: configurable label via {LOGIN_TABLE_FPW_LINK:
+		// label=Your custom text}. Upstream hardcodes the label; Lite
+		// allows the shortcode caller to override.
+		$label = !empty($parm['label']) ? $parm['label'] : LAN_LOGIN_12;
+		return "<a href='".e_HTTP."fpw.php' ".$class.">".$label."</a>";
 	}
 
 	/* {LOGIN_TABLE_DEST} - carries the signed post-login destination through the login POST */

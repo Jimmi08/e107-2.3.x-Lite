@@ -8,7 +8,7 @@
  *
  *
  *
- * $Source: /cvs_backup/e107_0.8/e107_themes/templates/signup_template.php,v $
+ * $Source: /cvs_backup/e107_0.8/ethemes/templates/signup_template.php,v $
  * $Revision: 12837 $
  * $Date: 2012-06-19 11:08:41 +0200 (di, 19 jun 2012) $
  * $Author: e107coders $
@@ -64,7 +64,8 @@ $SIGNUP_WRAPPER['SIGNUP_EMAIL_CONFIRM'] = 		"<div class='form-group row m-2'>
 													<div class='col-sm-9'>{---}</div>
 												</div>";
 
- 
+$SIGNUP_WRAPPER['SIGNUP_XUP']                   = "<div class='text-center'>{---}
+												<h2 class='signup-divider'><span>{LAN=SIGNUP_120}</span></h2></div>";
 
 $SIGNUP_WRAPPER['SIGNUP_PASSWORD1'] = 			"<div class='form-group row m-2'>
 													<label class='col-sm-3 control-label' for='password1'>{LAN=SIGNUP_83}{SIGNUP_IS_MANDATORY=true}</label>
@@ -91,9 +92,9 @@ $SIGNUP_TEMPLATE['start'] = "
 
 
 $SIGNUP_TEMPLATE['body'] = "
- 
+	{SIGNUP_XUP}
 	<div id='default'>
- 
+		{SIGNUP_XUP_ACTION}
 			{SIGNUP_DISPLAYNAME}
 			{SIGNUP_LOGINNAME}
 			{SIGNUP_REALNAME}

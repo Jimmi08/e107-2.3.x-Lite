@@ -8,6 +8,9 @@
  *
 */
 
+// LITE MODIFICATION: admin icons rendered without the upstream
+// double-size icon class (Lite prefers smaller icons).
+
 $ADMIN_ICONS_TEMPLATE['E_16_FACEBOOK']              = "<img class='icon S16' src='" . e_IMAGE . "admin_images/facebook_16.png' alt='' />";
 $ADMIN_ICONS_TEMPLATE['E_16_FACEBOOK']              = "<img class='icon S16' src='" . e_IMAGE . "admin_images/facebook_16.png' alt='' />";
 $ADMIN_ICONS_TEMPLATE['E_16_TWITTER']               = "<img class='icon S16' src='" . e_IMAGE . "admin_images/twitter_16.png' alt='' />";
@@ -130,17 +133,17 @@ $ADMIN_ICONS_TEMPLATE['E_32_UNDO']                = "<img class='icon S32' src='
 $ADMIN_ICONS_TEMPLATE['ADMIN_WARNING_ICON']         = "<i class='fa fa-warning text-warning'></i>";
 $ADMIN_ICONS_TEMPLATE['ADMIN_GRID_ICON']            = "<i class='fa fa-th'></i>";
 $ADMIN_ICONS_TEMPLATE['ADMIN_LIST_ICON']            = "<i class='fas fa-list'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_ADD_ICON']             = "<i class='S32 e-add-32'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_ADD_ICON']             = "<i class='admin-ui-option fa fa-plus fa-fw'></i>";
 $ADMIN_ICONS_TEMPLATE['ADMIN_INFO_ICON']            = "<i class='fa fa-question-circle'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_CONFIGURE_ICON']       = "<i class='admin-ui-option fa fa-cog  fa-fw'></i>"; //"<i class='S32 e-settings-32'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_VIEW_ICON']            = "<i class='admin-ui-option fa fa-search  fa-fw'></i>"; //"<i class='S32 e-search-32'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_CONFIGURE_ICON']       = "<i class='admin-ui-option fa fa-cog fa-fw'></i>"; //"<i class='S32 e-settings-32'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_VIEW_ICON']            = "<i class='admin-ui-option fa fa-search fa-fw'></i>"; //"<i class='S32 e-search-32'></i>";
 $ADMIN_ICONS_TEMPLATE['ADMIN_URL_ICON']             = "<i class='S16 e-forums-16'></i>";
 $ADMIN_ICONS_TEMPLATE['ADMIN_INSTALLPLUGIN_ICON']   = "<i class='S32 e-plugin_install-32'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_UNINSTALLPLUGIN_ICON'] = "<i class='admin-ui-option fa fa-trash  fa-fw'></i>"; // "<i class='S32 e-plugin_uninstall-32'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_UPGRADEPLUGIN_ICON']   = "<i class='admin-ui-option fa fa-arrow-up  fa-fw'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_REPAIRPLUGIN_ICON']    = "<i class='admin-ui-option fa fa-wrench  fa-fw'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_UP_ICON']              = "<i class='admin-ui-option fa fa-chevron-up  fa-fw'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_DOWN_ICON']            = "<i class='admin-ui-option fa fa-chevron-down  fa-fw'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_UNINSTALLPLUGIN_ICON'] = "<i class='admin-ui-option fa fa-trash fa-fw'></i>"; // "<i class='S32 e-plugin_uninstall-32'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_UPGRADEPLUGIN_ICON']   = "<i class='admin-ui-option fa fa-arrow-up fa-fw'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_REPAIRPLUGIN_ICON']    = "<i class='admin-ui-option fa fa-wrench fa-fw'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_UP_ICON']              = "<i class='admin-ui-option fa fa-chevron-up fa-fw'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_DOWN_ICON']            = "<i class='admin-ui-option fa fa-chevron-down fa-fw'></i>";
 
 // FOR BC
 $ADMIN_ICONS_TEMPLATE['ADMIN_EDIT_ICON_PATH']       = e_IMAGE_ABS . "admin_images/edit_32.png";
@@ -148,11 +151,11 @@ $ADMIN_ICONS_TEMPLATE['ADMIN_DELETE_ICON_PATH']     = e_IMAGE_ABS . "admin_image
 $ADMIN_ICONS_TEMPLATE['ADMIN_WARNING_ICON_PATH']    = e_IMAGE_ABS . "admin_images/warning_32.png";
 
 
-$ADMIN_ICONS_TEMPLATE['ADMIN_EDIT_ICON']            = "<i class='admin-ui-option fa fa-edit  fa-fw'></i>"; // "<i class='S32 e-edit-32'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_EDIT_ICON']            = "<i class='admin-ui-option fa fa-edit fa-fw'></i>"; // "<i class='S32 e-edit-32'></i>";
 $ADMIN_ICONS_TEMPLATE['ADMIN_DELETE_ICON']          = "<i class='admin-ui-option fa fa-trash fa-fw'></i>"; // "<i class='S32 e-delete-32'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_SORT_ICON']            = "<i class='admin-ui-option fa fa-sort  fa-fw'></i>"; //
-$ADMIN_ICONS_TEMPLATE['ADMIN_EXECUTE_ICON']         = "<i class='admin-ui-option fa fa-play  fa-fw'></i>"; // "<i class='S32 e-execute-32'></i>";
-$ADMIN_ICONS_TEMPLATE['ADMIN_PAGES_ICON']           = "<i class='admin-ui-option fa fa-file  fa-fw'></i>"; //"<i class='S32 e-custom-32'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_SORT_ICON']            = "<i class='admin-ui-option fa fa-sort fa-fw'></i>"; //
+$ADMIN_ICONS_TEMPLATE['ADMIN_EXECUTE_ICON']         = "<i class='admin-ui-option fa fa-play fa-fw'></i>"; // "<i class='S32 e-execute-32'></i>";
+$ADMIN_ICONS_TEMPLATE['ADMIN_PAGES_ICON']           = "<i class='admin-ui-option fa fa-file fa-fw'></i>"; //"<i class='S32 e-custom-32'></i>";
 
 $ADMIN_ICONS_TEMPLATE['E_32_TRUE']                  = "<i class='S32 e-true-32'></i>";
 
@@ -162,14 +165,6 @@ $ADMIN_ICONS_TEMPLATE['ADMIN_TRUE_ICON']            = "<span class='text-success
 $ADMIN_ICONS_TEMPLATE['ADMIN_FALSE_ICON']           = "<span class='text-danger admin-false-icon'>&#10799;</span>";
 
 $ADMIN_ICONS_TEMPLATE['E_24_PLUGIN']                = "<i class='S24 e-plugins-24'></i> ";
-
-
-$ADMIN_ICONS_TEMPLATE['E_16_NAV_MAIN']              = "<i class='S16 e-main-16'></i> ";
-$ADMIN_ICONS_TEMPLATE['E_16_NAV_DOCS']              = "<i class='S16 e-docs-16'></i> ";
-$ADMIN_ICONS_TEMPLATE['E_16_NAV_LEAV']              = "<i class='S16 e-leave-16'></i> ";
-$ADMIN_ICONS_TEMPLATE['E_16_NAV_LGOT']              = "<i class='S16 e-logout-16'></i> ";
-$ADMIN_ICONS_TEMPLATE['E_16_NAV_ARROW']             = "<i class='S16 e-arrow-16'></i> ";
-$ADMIN_ICONS_TEMPLATE['E_16_NAV_ARROW_OVER']        = "<i class='S16 e-arrow_over-16'></i> ";
 
 $ADMIN_ICONS_TEMPLATE['E_32_NAV_MAIN']              = "<i class='S32 e-main-32'></i> ";
 $ADMIN_ICONS_TEMPLATE['E_32_NAV_DOCS']              = "<i class='S32 e-docs-32'></i> ";
@@ -227,7 +222,14 @@ $ADMIN_ICONS_TEMPLATE['E_16_CAT_MANAGE'] = e_IMAGE.'admin_images/manage_16.png')
 $ADMIN_ICONS_TEMPLATE['E_16_CAT_MISC'] = e_IMAGE.'admin_images/settings_16.png');
 $ADMIN_ICONS_TEMPLATE['E_16_CAT_ABOUT'] = e_IMAGE.'admin_images/info_16.png');
 
+// Small Nav Images
 
+$ADMIN_ICONS_TEMPLATE['E_16_NAV_MAIN'] = e_IMAGE.'admin_images/main_16.png');
+$ADMIN_ICONS_TEMPLATE['E_16_NAV_DOCS'] = e_IMAGE.'admin_images/docs_16.png');
+$ADMIN_ICONS_TEMPLATE['E_16_NAV_LEAV'] = e_IMAGE.'admin_images/leave_16.png');
+$ADMIN_ICONS_TEMPLATE['E_16_NAV_LGOT'] = e_IMAGE.'admin_images/logout_16.png');
+$ADMIN_ICONS_TEMPLATE['E_16_NAV_ARROW'] = e_IMAGE.'admin_images/arrow_16.png');
+$ADMIN_ICONS_TEMPLATE['E_16_NAV_ARROW_OVER'] = e_IMAGE.'admin_images/arrow_over_16.png');
 
 // Large Nav Images
 

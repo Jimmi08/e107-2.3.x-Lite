@@ -58,4 +58,44 @@ $USERPOSTS_NP_TABLE = $USERPOSTS_TEMPLATE['np_table']; // BC, will be removed
 		</tr>
 	";
 
- 
+// ##### ------------------------------------------------------------------------------------------
+//TODO Put this part into the forum plugin.
+
+// ##### USERPOSTS FORUM TABLE --------------------------------------------------------------------
+	// additional shortcodes available:
+	// {USERPOSTS_FORUM_SEARCH_FIELD}, {USERPOSTS_FORUM_SEARCH_BUTTON}
+	$USERPOSTS_TEMPLATE['forum_table_start'] = "
+	<div>
+		{NEXTPREV}
+		<form method='post' action='".e_REQUEST_URL."'>
+		<table class='table table-striped fborder up-forum' id='up-forum'>
+	";
+	$USERPOSTS_FORUM_TABLE_START = $USERPOSTS_TEMPLATE['forum_table_start']; // BC, will be removed
+
+	$USERPOSTS_TEMPLATE['forum_table'] = "
+			<tr>
+				<td class='fcaption'>
+					{USERPOSTS_FORUM_TOPIC_HREF_PRE}<b>{USERPOSTS_FORUM_TOPIC_PRE} {USERPOSTS_FORUM_TOPIC}</b></a>
+					<span class='smalltext'>({USERPOSTS_FORUM_NAME_HREF_PRE}<b>{USERPOSTS_FORUM_NAME}</b></a>)</span>
+					<span class='smalltext'>{USERPOSTS_FORUM_DATESTAMP}</span>
+				</td>
+			</tr>
+			<tr>
+				<td class='forumheader3'>
+					{USERPOSTS_FORUM_THREAD}
+				</td>
+			</tr>
+	";
+	$USERPOSTS_FORUM_TABLE = $USERPOSTS_TEMPLATE['forum_table']; // BC, will be removed
+
+	$USERPOSTS_TEMPLATE['forum_table_end'] = "
+
+		</table>
+		<div class='text-right text-end'>
+			{USERPOSTS_FORUM_SEARCH}
+		</div>
+		</form>
+		{NEXTPREV}
+	</div>
+	";
+	$USERPOSTS_FORUM_TABLE_END = $USERPOSTS_TEMPLATE['forum_table_end']; // BC, will be removed

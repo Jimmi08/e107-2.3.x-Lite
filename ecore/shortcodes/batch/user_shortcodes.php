@@ -160,7 +160,24 @@ class user_shortcodes extends e_shortcode
 		return ($total_forumposts > 0) ? round(($user_forumposts/$total_forumposts) * 100, 2) : 0;
 	}
 
- 
+	
+	function sc_user_level($parm = null) 
+	{
+		$pref = e107::getPref();
+
+		$ldata = e107::getRank()->getRanks($this->var['user_id']); //, (USER && $forum->isModerator(USERID)));
+		if(!empty($ldata['special']))
+		{
+			$r = $ldata['special'];
+		}
+		else
+		{
+			$r = $ldata['pic'] ? $ldata['pic'] : varset($ldata['name'], $ldata['name']);
+		}
+		if(!$r) $r = 'n/a';
+		return $r;
+
+	}
 	
 	
 	function sc_user_lastvisit($parm='')
@@ -447,7 +464,7 @@ class user_shortcodes extends e_shortcode
 	{
 		$pref = e107::getPref();
 		$tp = e107::getParser();
-		if(e107::isInstalled("pm") && ($this->var['user_id'] > 0 && $this->var['user_id'] != USERID ))
+		if(e107::isInstalled("pm") && ($this->var['user_id'] > 0))
 		{
 		  return $tp->parseTemplate("{SENDPM={$this->var['user_id']}}");
 		}
@@ -503,7 +520,7 @@ class user_shortcodes extends e_shortcode
 	function sc_user_update_link($parm=null)
 	{
 		$label = null;
- 
+
 		if (USERID == $this->var['user_id']) 
 		{
 			$label = LAN_USER_38;
@@ -530,7 +547,7 @@ class user_shortcodes extends e_shortcode
 		}
 		else if(ADMIN && getperms("4") && !$this->var['user_admin'])
 		{
-			return e107::getUrl()->create('user/profile/edit', array('id' => $this->var['user_id']));
+			return e_ADMIN_ABS."users.php?mode=main&action=edit&id=".$this->var['user_id'];
 		}
 	}
 
@@ -710,11 +727,11 @@ class user_shortcodes extends e_shortcode
 			//	e107::getDebug()->log("Wrong permissions for user_euf: ".$fld);
 				return false;
 			}
- 
+
 			$val = $this->var[$fld];
 			$type = $ext->getFieldType($fld);
 
-			return $ext->renderValue($val,$type, $fld);
+			return $ext->renderValue($val,$type);
 
 		}
 
@@ -748,7 +765,7 @@ class user_shortcodes extends e_shortcode
 		*/
 
 		$ue = e107::getUserExt();
-		$ueCatList = $ue->getCategories();
+		$ueCatList = $ue->user_extended_get_categories();
 		$ueFieldList = $ue->user_extended_get_fields();
 
 
@@ -804,7 +821,18 @@ class user_shortcodes extends e_shortcode
 		return $ret;
 	}
 
- 
+
+	function sc_profile_comments($parm=null)
+	{
+		if(!e107::getPref('profile_comments'))
+		{
+			return '';
+		}
+
+		return e107::getComment()->compose_comment('profile', 'comment', $this->var['user_id'], null, $this->var['user_name'], false,'html');
+
+		//	return e107::getRender()->tablerender($ret['caption'],$ret['comment_form']. $ret['comment'], 'profile_comments', TRUE);
+	}
 
 	/**
 	 * @deprecated
@@ -912,7 +940,86 @@ class user_shortcodes extends e_shortcode
 	}
 
 
- 
+	/**
+	 * @Deprecated Use {USER_ADDONS} instead. 
+	 */
+	function sc_user_embed_userprofile($parm=null)
+	{
+		return $this->sc_user_addons($parm);
+		//if no parm, it means we render ALL embedded contents
+		//so we're preloading all registerd e_userprofile files
+		$key = varset($pref['e_userprofile_list']); 
+		
+		//if we don't have any embedded contents, return
+		if(!is_array($key) || empty($key)){ return; }
+		
+		//array holding specific hooks to render
+		$render=array();
+		
+		if($parm){
+			
+			//if the first char of parm is an ! mark, it means it should not render the following parms
+			if(strpos($parm,'!')===0){
+				$tmp = explode(",", substr($parm,1) );
+				foreach($tmp as $not){
+					$not=trim($not);
+					if(isset($key[$not])){
+						//so we're unsetting them from the $key array
+						unset($key[$not]);
+					}
+				}
+			
+			//else it means we render only the following parms
+			}else{
+				$tmp = explode(",", $parm );
+				foreach($tmp as $yes){
+					$yes=trim($yes);
+					if(isset($key[$yes])){
+						//so add the ones we need to render to the $render array
+						$render[$yes] = $key[$yes];
+					}
+				}
+				//finally assign the render array as the key array, overwriting it
+				$key = $render;
+			}
+		}
+		
+		foreach($key as $hook){
+			//include the e_user file and initiate the class
+			if(is_readable(e_PLUGIN.$hook."/e_userprofile.php")){
+				//if the current hook is not yet rendered
+				if(!in_array($hook, $embed_already_rendered)){
+					require_once(e_PLUGIN.$hook."/e_userprofile.php");
+					$name = "e_userprofile_{$hook}";
+					if(function_exists($name)){
+						$arr[] = $name();
+						//we need to store which hooks are already rendered
+						$embed_already_rendered[] = $hook;
+					}
+				}
+			}
+		}
+		
+		$ret = '';
+		foreach($arr as $data){
+			if(is_array($data['caption'])){
+				foreach($data['caption'] as $k=>$v){
+					if(isset($data['caption'][$k]) && isset($data['text'][$k])){
+						$search = array('{USER_EMBED_USERPROFILE_CAPTION}', '{USER_EMBED_USERPROFILE_TEXT}');
+						$replace = array($data['caption'][$k], $data['text'][$k]);
+						$ret .= str_replace($search, $replace, $USER_EMBED_USERPROFILE_TEMPLATE);
+					}
+				}
+			}else{
+				if(isset($data['caption']) && isset($data['text'])){
+					$search = array('{USER_EMBED_USERPROFILE_CAPTION}', '{USER_EMBED_USERPROFILE_TEXT}');
+					$replace = array($data['caption'], $data['text']);
+					$ret .= str_replace($search, $replace, $USER_EMBED_USERPROFILE_TEMPLATE);
+				}
+			}
+		}
+		return $ret;
+	}
 	
 	
 	function sc_user_customtitle($parm=null)

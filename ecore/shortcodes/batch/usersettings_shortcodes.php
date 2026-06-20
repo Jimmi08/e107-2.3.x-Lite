@@ -287,7 +287,7 @@ class usersettings_shortcodes extends e_shortcode
 		$inclass = implode(',', $is_checked);
 
 		//	  $ret = "<table style='width:95%;margin-left:0px'><tr><td class='defaulttext'>";
-		$ret .= $e_userclass->vetted_tree('class', array($e_userclass, 'checkbox_desc'), $inclass, 'strip, editable, no-excludes');
+		$ret .= $e_userclass->vetted_tree('class', array($e_userclass, 'checkbox_desc'), $inclass, 'editable, no-excludes');
 
 		//	  $ret .= "</td></tr></table>\n";
 
@@ -641,11 +641,6 @@ class usersettings_shortcodes extends e_shortcode
 			$fhide = $ue->user_extended_hide($fInfo, $chk);
 		}
 
-		if (varset($parms[5]))
-		{
-			$fhelp = $parms[5];
-		}
-
 		$uVal = str_replace(chr(1), "", varset($this->var['user_' . $parm]));
 		$fval = (string) $ue->user_extended_edit($fInfo, $uVal);
 
@@ -655,7 +650,6 @@ class usersettings_shortcodes extends e_shortcode
 		$ret = $USEREXTENDED_FIELD;
 		$ret = str_replace("{FIELDNAME}", $fname, $ret);
 		$ret = str_replace("{FIELDVAL}", $fval, $ret);
-		$ret = str_replace("{FIELDHELP}", $fhelp, $ret);
 		$ret = str_replace("{HIDEFIELD}", $fhide, $ret);
 		$ret = str_replace("{REQUIRED}", $this->required($rVal), $ret);
 

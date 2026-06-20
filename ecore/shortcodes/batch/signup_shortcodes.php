@@ -58,7 +58,103 @@ class signup_shortcodes extends e_shortcode
 		*/
 	}
 
- 
+
+	function sc_signup_xup($param=null) // show it to those who were using xup
+	{
+		switch ($param) 
+		{
+			case 'login':
+				return $this->sc_signup_xup_login($param);
+			break;
+			
+			case 'signup':
+			default:
+				return $this->sc_signup_xup_signup($param);
+			break;
+		}
+	}
+	
+	// TODO - template
+	function sc_signup_xup_login($parm=null)
+	{
+		if (!e107::getUserProvider()->isSocialLoginEnabled()) return '';
+
+		$size = empty($parm['size']) ? '3x' : $parm['size'];
+		$class = empty($parm['class']) ?  'btn btn-primary' : $parm['class'] ;
+
+		return $this->generateXupLoginButtons("login", $size, $class);
+	}
+	
+	// TODO - template
+	function sc_signup_xup_signup($parm=null)
+	{
+		if (!e107::getUserProvider()->isSocialLoginEnabled()) return '';
+
+		$size = empty($parm['size']) ? '2x' : $parm['size'];
+		$class = empty($parm['class']) ?  'btn btn-primary' : $parm['class'] ;
+
+		if($size == '2x')
+		{
+			$class .= ' btn-lg';
+		}
+
+		return $this->generateXupLoginButtons("signup", $size, $class);
+	}
+
+	/**
+	 * @param string $type
+	 * @param $size
+	 * @param $class
+	 * @return string
+	 */
+	private function generateXupLoginButtons($type, $size, $class)
+	{
+		$text = "";
+		$tp = e107::getParser();
+
+		$lan_plugin_social_xup = '';
+		switch ($type)
+		{
+			case "login":
+				$lan_plugin_social_xup = LAN_PLUGIN_SOCIAL_XUP_SIGNUP;
+				break;
+			case "signup":
+				$lan_plugin_social_xup = LAN_PLUGIN_SOCIAL_XUP_REG;
+				break;
+		}
+
+
+		$manager = new social_login_config(e107::getConfig());
+		$providers = $manager->getSupportedConfiguredProviderConfigs();
+
+		foreach ($providers as $p => $v)
+		{
+			if ($v['enabled'] == 1)
+			{
+				$ic = strtolower($p);
+
+				switch ($ic)
+				{
+					case 'windowslive':
+						$ic = 'windows';
+						break;
+				}
+
+				if (defset('FONTAWESOME') && in_array($ic, e107::getMedia()->getGlyphs('fa4')))
+					$button = "<span title='" . $tp->lanVars($lan_plugin_social_xup, $p) . "'>" . $tp->toGlyph('fa-' . $ic, array('size' => $size, 'fw' => true)) . "</span>";
+				elseif (is_file(e107::getFolder('images') . "xup/{$ic}.png"))
+					$button = "<img class='e-tip' title='" . $tp->lanVars($lan_plugin_social_xup, $p) . "' src='" . e_IMAGE_ABS . "xup/{$ic}.png' alt='' />";
+				else
+					$button = "<span title='" . $tp->lanVars($lan_plugin_social_xup, $p) . "'>$p</span>";
+
+				$callback_url = e107::getUserProvider($p)->generateCallbackUrl(e_REQUEST_URL);
+				$text .= " <a title='" . $tp->lanVars($lan_plugin_social_xup, $p) . " ' role='button' class='signup-xup $class' href='$callback_url'>$button</a> ";
+			}
+			//TODO different icon options. see: http://zocial.smcllns.com/
+		}
+
+		return $text;
+	}
 
 	function sc_signup_form_open()
 	{
@@ -291,20 +387,17 @@ class signup_shortcodes extends e_shortcode
 		return e107::getForm()->email('email_confirm', $val, 100, $options);
 
 	}
-
-	/* {SIGNUP_HIDE_EMAIL} */
+	
+	
 	function sc_signup_hide_email()
 	{
 		global $rs;
 		$default_email_setting = 1;   // Gives option of turning into a pref later if wanted
 		$pref = e107::getPref('signup_option_hideemail');
 
-		$options['class']       = vartrue($parm['class'], '');
-
 		if ($pref)
 		{
-			return e107::getForm()->radio_switch("hideemail", $default_email_setting, LAN_YES, LAN_NO, $options);
-
+			return $rs->form_radio("hideemail", 1, $default_email_setting==1)." <label for='hideemail1'>".LAN_YES."</label> &nbsp;&nbsp;".$rs->form_radio("hideemail",  0,$default_email_setting==0)." <label for='hideemail0'>".LAN_NO."</label>";
 		}
 
 		return null;
@@ -373,7 +466,8 @@ class signup_shortcodes extends e_shortcode
 		);
 
 		return $tp->simpleParse($USERCLASS_SUBSCRIBE_ROW, $shortcodes);*/
-}
+
+	}
 
 
 	function sc_signup_extended_user_fields($parm = null)
@@ -497,7 +591,7 @@ class signup_shortcodes extends e_shortcode
 		global $signup_imagecode, $rs, $sec_img;
 		if($signup_imagecode)
 		{
-			return e107::getSecureImg()->renderImage()."<div>".e107::getSecureImg()->renderInput()."</div>"; 
+			return e107::getSecureImg()->r_image()."<div>".e107::getSecureImg()->renderInput()."</div>"; 
 			// return $rs->form_hidden("rand_num", $sec_img->random_number). $sec_img->r_image()."<br />".$rs->form_text("code_verify", 20, "", 20);
 		}
 		unset($rs, $sec_img);
@@ -532,7 +626,7 @@ class signup_shortcodes extends e_shortcode
 			'avatar'    => 'signup_option_image',
 			'signature' => 'signup_option_signature',
 		);
- 
+
 		if((!empty($parm) && !empty($mandatory[$parm]) && (int) $pref[$mandatory[$parm]] === 2) || $parm === 'true' || ($parm === 'email' && empty($pref['disable_emailcheck'])))
 		{
 			return "<span class='required'><!-- empty --></span>";
@@ -663,3 +757,5 @@ class signup_shortcodes extends e_shortcode
 	}
 
 }
+
+

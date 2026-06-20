@@ -74,7 +74,7 @@ class admin_shortcodes extends e_shortcode
             'menus.php',
             'phpinfo.php',
             'credits.php',
-           // 'docs.php',
+            'docs.php',
             'cache.php',
             'emoticon.php',
             'updateadmin.php',
@@ -231,7 +231,7 @@ class admin_shortcodes extends e_shortcode
 			$help_text = $ns->tablerender($tmp['caption'],$tmp['text'],'e_help',true);
 		}
 
-		if(e_PAGE === 'menus.php') // quite fix to disable e107_admin/menus.php help file in all languages.
+		if(e_PAGE === 'menus.php') // quite fix to disable eadmin/menus.php help file in all languages.
 		{
 			return $help_text;
 		}
@@ -426,7 +426,7 @@ class admin_shortcodes extends e_shortcode
 		{
 			$text .= $sql->mySQLlanguage;
 			$text .= ' (' .$slng->convert($sql->mySQLlanguage).")
-			: <span class='btn btn-default btn-secondary button' style='cursor: pointer;' onclick='expandit(\"lan_tables\");'><a style='text-decoration:none' title='' href=\"javascript:void(0);\" >&nbsp;&nbsp;".count($aff). ' ' .UTHEME_MENU_L3."&nbsp;&nbsp;</a></span><br />
+			: <span class='btn btn-default btn-secondary button' style='cursor: pointer;' onclick='expandit(\"lan_tables\");'><a style='text-decoration:none' title='' href=\"javascript:void(0);\" >&nbsp;&nbsp;".count($aff). ' ' .defset('UTHEME_MENU_L3')."&nbsp;&nbsp;</a></span><br />
 			<span style='display:none' id='lan_tables'>
 			";
 			$text .= implode('<br />', $aff);
@@ -494,7 +494,7 @@ class admin_shortcodes extends e_shortcode
 				$select .= "<option value='".$lng."' {$selected}>$lng</option>\n";
 				
 			}
-			$select .= '</select> ' .(!isset($params['nobutton']) ? "<button class='update e-hide-if-js' type='submit' name='setlanguage' value='no-value'><span>".UTHEME_MENU_L1. '</span></button>' : ''). '
+			$select .= '</select> ' .(!isset($params['nobutton']) ? "<button class='update e-hide-if-js' type='submit' name='setlanguage' value='no-value'><span>".defset('UTHEME_MENU_L1'). '</span></button>' : ''). '
 			' .e107::getForm()->hidden('setlanguage', '1'). '
 			</div>
 			</form>
@@ -504,7 +504,7 @@ class admin_shortcodes extends e_shortcode
 		if(isset($params['nomenu'])) { return $select; }
 		if($select) { $text .= "<div class='center'>{$select}</div>"; }
 
-		return $ns->tablerender(UTHEME_MENU_L2, $text, 'core-menu-lang', true);
+		return $ns->tablerender(defset('UTHEME_MENU_L2'), $text, 'core-menu-lang', true);
 
 	}
 
@@ -528,24 +528,24 @@ class admin_shortcodes extends e_shortcode
 					$mes 	= e107::getMessage();
 
 					$active_uploads 	= $sql->count('upload', '(*)', 'WHERE upload_active = 0');
-					// $submitted_news 	= $sql->count('submitnews', '(*)', 'WHERE submitnews_auth = 0');
+					$submitted_news 	= $sql->count('submitnews', '(*)', 'WHERE submitnews_auth = 0');
 					$comments_pending 	= $sql->count('comments', '(*)', 'WHERE comment_blocked = 2 ');
 
 				//	$text = "<div class='left'><div style='padding-bottom: 2px;'>".E_16_NEWS.($submitted_news ? " <a href='".e_ADMIN."newspost.php?mode=sub&amp;action=list'>".ADLAN_LAT_2.": $submitted_news</a>" : ' '.ADLAN_LAT_2.': 0').'</div>';
-				 	$text = "<div style='padding-bottom: 2px;'>".E_16_COMMENT. " <a href='".e_ADMIN_ABS."comment.php?searchquery=&filter_options=comment_blocked__2'>".ADLAN_LAT_9.": $comments_pending</a></div>";		
+				//	$text .= "<div style='padding-bottom: 2px;'>".E_16_COMMENT. " <a href='".e_ADMIN_ABS."comment.php?searchquery=&filter_options=comment_blocked__2'>".ADLAN_LAT_9.": $comments_pending</a></div>";		
 		
 			//		$text .= "<div style='padding-bottom: 2px;'>".E_16_UPLOADS." <a href='".e_ADMIN."upload.php'>".ADLAN_LAT_7.": $active_uploads</a></div>";
 
 					$oldconfigs = array();
 
-					// if(getperms('N'))
-					// {
-					// 	$oldconfigs['e-news'][0] = array('icon' =>defset('E_16_NEWS'), 'title' =>defset('ADLAN_LAT_2'), 'url' => e_ADMIN. 'newspost.php?mode=sub&amp;action=list', 'total' =>$submitted_news);
-					// }
+					if(getperms('N'))
+					{
+						$oldconfigs['e-news'][0] = array('icon' =>defset('E_16_NEWS'), 'title' =>defset('ADLAN_LAT_2'), 'url' => e_ADMIN. 'newspost.php?mode=sub&amp;action=list', 'total' =>$submitted_news);
+					}
 
 					if(getperms('B') && empty($pref['comments_disabled']) && varset($pref['comments_engine'],'e107') === 'e107')
 					{
-					 	$oldconfigs['e-comment'][0] = array('icon' =>defset('E_16_COMMENT'), 'title' =>defset('ADLAN_LAT_9'), 'url' => e_ADMIN_ABS. 'comment.php?searchquery=&filter_options=comment_blocked__2', 'total' =>$comments_pending);
+						$oldconfigs['e-comment'][0] = array('icon' =>defset('E_16_COMMENT'), 'title' =>defset('ADLAN_LAT_9'), 'url' => e_ADMIN_ABS. 'comment.php?searchquery=&filter_options=comment_blocked__2', 'total' =>$comments_pending);
 					}
 
 					if(getperms('V'))
@@ -719,21 +719,41 @@ class admin_shortcodes extends e_shortcode
 
 	public function sc_admin_logo($parm=null)
 	{
-		//	this is hardcoded admin navbar logo for e107 2
-		$default = '<img class="admin-logo" src="'.e_THEME_ABS.'bootstrap3/images/logo.webp" alt="e107"  />';
+		//	parse_str($parm);
 
-		//check if custom core plugin is installed
-		if (e107::isInstalled('SP_Core'))
-		{  
-			$admin_logo = e107::getPlugConfig('SP_Core')->getPref('admin_logo');
-			if($admin_logo) {
-				$admin_logo = e107::getParser()->replaceConstants($admin_logo, 'full') ;
-				$image = '<img class="admin-logo" src="' . $admin_logo .  '" alt="e107"  />';
-				return $image;
-			}
-			
+
+		if (isset($file) && $file && is_readable($file))
+		{
+			$logo = $file;
+			$path = $file;
 		}
-		return $default; 
+		else if (is_readable(THEME.'images/e_adminlogo.png'))
+		{
+			$logo = THEME_ABS.'images/e_adminlogo.png';
+			$path = THEME.'images/e_adminlogo.png';
+		}
+		else
+		{
+			$logo = e_IMAGE_ABS.'adminlogo.png';
+			$path = e_IMAGE.'adminlogo.png';
+		}
+
+		$dimensions = getimagesize($path);
+
+		$image = "<img class='logo admin_logo' src='".$logo."' style='width: ".$dimensions[0]. 'px; height: ' .$dimensions[1]."px' alt='".ADLAN_153."' />\n";
+
+		if (isset($link) && $link)
+		{
+			if ($link === 'index')
+			{
+				$image = "<a href='".e_ADMIN_ABS."index.php'>".$image.'</a>';
+			}
+			else
+			{
+				$image = "<a href='".$link."'>".$image.'</a>';
+			}
+		}
+		return $image;
 	}
 
 	public function sc_admin_menu($parm=null)
@@ -800,20 +820,144 @@ class admin_shortcodes extends e_shortcode
 		return $ret;
 	}
 
+
+	public function sc_admin_perm_emulation()
+	{
+		// Re-verified on every request by e_user::loadEmulation() (#5745);
+		// null whenever emulation is not active or no longer allowed.
+		$emulated = e107::getUser()->getEmulatedUser();
+		if(null === $emulated)
+		{
+			return null;
+		}
+
+		// Initialize e107 parser and form helper
+		$tp = e107::getParser();
+		$frm = e107::getForm();
+
+		// Prepare the navbar dropdown
+		$text = "<ul class='nav nav-admin navbar-nav navbar-right admin-icon-emulation'>
+                <li class='dropdown'>
+                    <a class='dropdown-toggle' title='" . LAN_EMULATION_MODE . "' role='button' data-toggle='dropdown' href='#'>";
+
+		$name = $emulated->getRealName();
+		// Add warning glyph and emulated username (with fa-beat modification)
+		$text .= $tp->toGlyph('fa-user-secret', ['class' => 'fa-fade text-warning']) .
+			"<span class='text-warning hidden-xs hidden-sm hidden-md' style='margin-left: 5px'>" . $tp->toHTML($name) . "</span>" .
+			"<b class='caret text-warning'></b></a>";
+
+		// Start dropdown menu with padding and width
+		$text .= '<ul class="dropdown-menu" role="menu" style="padding: 10px; width: 350px">';
+
+		// Emulated user details with fixed height and scrollbar
+		$text .= '<li role="menuitem" class="text-left"><div style="padding: 10px; max-height: 300px; overflow-y: auto;">';
+		$text .= "<p><strong>" . LAN_EMULATION_EMULATING . "</strong><br />";
+		$text .= '<ul class="list-unstyled" style="margin-left: 20px"><li>' . $tp->toHTML($emulated->getName()) . '</li></ul></p>';
+
+		// Effective user classes (including inherited and implicit ones) as
+		// bullets, sorted alphabetically, minus the fixed system classes.
+		$text .= "<p><strong>" . LAN_EMULATION_USERCLASSES . "</strong><br />";
+		$excludedClasses = [e_UC_PUBLIC, e_UC_MAINADMIN, e_UC_READONLY, e_UC_GUEST, e_UC_MEMBER, e_UC_ADMIN, e_UC_NOBODY, e_UC_ADMINMOD, e_UC_MODS, e_UC_NEWUSER, e_UC_BOTS];
+		$classIds = array_diff($emulated->getClassList(), $excludedClasses);
+		if(!empty($classIds))
+		{
+			$classNames = [];
+			foreach($classIds as $classId)
+			{
+				$className = e107::getUserClass()->getName($classId) ?: "Unknown Class ($classId)";
+				$classNames[] = $className;
+			}
+			natcasesort($classNames);
+			$text .= '<ul class="list-unstyled" style="margin-left: 20px">';
+			foreach($classNames as $className)
+			{
+				$text .= '<li>' . $tp->toHTML($className) . '</li>';
+			}
+			$text .= '</ul>';
+		}
+		else
+		{
+			$text .= LAN_NONE;
+		}
+		$text .= "</p>";
+
+		// Admin Permissions as bullets, sorted alphabetically
+		$text .= "<p><strong>" . LAN_EMULATION_ADMINPERMS . "</strong><br />";
+		$perms = $emulated->getAdminPerms();
+		if(!empty($perms) && $perms !== '.')
+		{
+			$permKeys = array_filter(explode('.', $perms));
+			$permdiz = e107::getUserPerms()->getPermList('all');
+			$permNames = [];
+			foreach($permKeys as $p)
+			{
+				$val = isset($permdiz[$p]) ? (is_array($permdiz[$p]) ? $permdiz[$p][0] : $permdiz[$p]) : "Unknown Permission ($p)";
+				$permNames[] = $val;
+			}
+			natcasesort($permNames);
+			if(!empty($permNames))
+			{
+				$text .= '<ul class="list-unstyled" style="margin-left: 20px">';
+				foreach($permNames as $permName)
+				{
+					$text .= '<li>' . $tp->toHTML($permName) . '</li>';
+				}
+				$text .= '</ul>';
+			}
+			else
+			{
+				$text .= LAN_NONE;
+			}
+		}
+		else
+		{
+			$text .= LAN_NONE;
+		}
+		$text .= "</p>";
+
+
+		$text .= '</div></li>';
+
+		// Divider
+		$text .= '<li class="divider"></li>';
+
+		// Stop Emulation button posting to the dedicated admin route (with CSRF token)
+		$text .= '<li role="menuitem" class="text-right">';
+		$text .= "<p style='padding:15px'><small class='text-muted'>" . LAN_EMULATION_TEMPORARY . "</small></p>";
+		$text .= $frm->open('emulation-stop-form', 'post', e_ADMIN_ABS . 'users.php?mode=main&action=emulatestop', array('class' => 'no-margin'));
+		$text .= $frm->token();
+		$icon = '<i class="fa fa-right-from-bracket fa-fw"></i>';
+		$text .= $frm->button('stopEmulation', $icon . ' ' . LAN_EMULATION_STOP);
+		$text .= $frm->close();
+		$text .= '</li>';
+
+
+		$text .= '</ul></li></ul>';
+
+		return $text;
+	}
+
+
+
 	/**
 	 * Admin area debug dropdown menu.
 	 * @return string|null
 	 */
 	public function sc_admin_debug()
 	{
-		if(!deftrue('e_DEVELOPER') && !deftrue('e_DEBUG') && !deftrue('e_DEBUGGER')) // e_DEBUGGER can be defined in e107_config.php to enable
-		{
-			return null;
-		}
+		$display = (int) e107::pref('core', 'admin_navbar_debug', e_UC_NOBODY);
 
-		if(!getperms('0'))
+		if(!check_class($display))
 		{
-			return null;
+			if(!deftrue('e_DEVELOPER') && !deftrue('e_DEBUG') && !deftrue('e_DEBUGGER')) // e_DEBUGGER can be defined in e107_config.php to enable
+			{
+				return null;
+			}
+
+			if(!getperms('0'))
+			{
+				return null;
+			}
 		}
 
 		try
@@ -941,7 +1085,7 @@ class admin_shortcodes extends e_shortcode
         
         return $text;
         
-      //  e107_plugins/pm/pm.php
+      //  eplugins/pm/pm.php
         
         
         
@@ -1248,7 +1392,9 @@ class admin_shortcodes extends e_shortcode
 		{
 			return null;
 		}
-			global $themename, $themeversion, $themeauthor, $themedate, $themeinfo, $mySQLdefaultdb;
+			global $themename, $themeversion, $themeauthor, $themedate, $themeinfo;
+
+			$mySQLdefaultdb = e107::getMySQLConfig('defaultdb');
 
 			$pref = e107::getPref();
 			$ns = e107::getRender();
@@ -1719,7 +1865,55 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 		return $text;
 	}
 
+	public function sc_admin_notifications()
+	{
+	//	$content = @file_get_contents(e_SYSTEM."adminNotifications.json");
+		if(!$array = eHelper::getSystemNotification())
+		{
+			return '';
+		}
 
+
+		/*return '<ul class="admin-notifications nav navbar-nav navbar-right">
+        <li class="dropdown">
+             <a class="dropdown-toggle " title="" role="button" data-toggle="dropdown" data-bs-toggle="dropdown" href="#" aria-expanded="true">
+             <i class="fas fa-bell fa-fw"></i></a>
+            </li>
+            </ul>';*/
+
+		$count = count($array);
+		$lanNotify = defset('LAN_SYSTEM_NOTIFICATIONS_X', '[x] System Notifications');
+		$lan = e107::getParser()->lanVars($lanNotify, $count);
+
+
+		$text = '<ul id="admin-notifications" class=" nav navbar-nav navbar-right">
+        <li class="dropdown">
+            <a class="dropdown-toggle " title="'.$lan.'" role="button" data-toggle="dropdown" data-bs-toggle="dropdown" href="#" aria-expanded="true">
+                <i class="fas fa-fade fa-bell fa-fw text-warning"></i>';
+
+		$text .= ($count > 1) ? '<sup class="text-warning">'.$count.'</sup>' : '';
+		$text .= '</a>
+            <ul class="dropdown-menu" role="menu">';
+
+            foreach($array as $row)
+            {
+				$text .= '<li class="dropdown-item-text">'.$row['message'].'</li>';
+            }
+
+             $text .= '  
+                </ul>
+        </li>
+        </ul>';
+
+		return $text;
+
+	}
+
+
+	/**
+	 * Checks for a new version of e107 that could be available for download.
+	 * @return string|null
+	 */
 	public function sc_admin_update()
 	{
 		if (!ADMIN) { return null; }
@@ -1728,6 +1922,7 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 
 		if(empty($pref['check_updates']))
 		{
+			eHelper::clearSystemNotification('sc_admin_update');
 			return null;
 		}
 
@@ -1754,10 +1949,18 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 
 		$data = e107::unserialize($cached);
 
+		if(!empty($data['version']) && !empty($data['url']))
+		{
+			$message = e107::getParser()->lanVars(LAN_NEWVERSION,$data['version']);
+			eHelper::addSystemNotification('sc_admin_update', "<a class='text-info' href='".$data['url']."' target='_blank'>$message</a>");
+		}
+
 		if($data === false || isset($data['status']))
 		{
+			eHelper::clearSystemNotification('sc_admin_update');
 			return null;
 		}
+
 
 
 		// Don't check for updates if running locally (comment out the next line to allow check - but
@@ -1768,13 +1971,15 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 		}
 
 
+
+
 		return '<ul class="core-update-available nav navbar-nav navbar-left">
         <li class="dropdown open">
             <a class="dropdown-toggle " title="Core Update Available" role="button" data-toggle="dropdown" data-bs-toggle="dropdown" href="#" aria-expanded="true">
                 <i class="fa fa-cloud-download  text-success"></i>
             </a>
             <ul class="dropdown-menu" role="menu">
-                <li class="nav-header navbar-header dropdown-header">'.e107::getParser()->lanVars(LAN_NEWVERSION,$data['version']).'</li>
+                <li class="nav-header navbar-header dropdown-header">'.$message.'</li>
                     <li><a href="'.$data['url'].'" rel="external"><i class="fa fa-download" ></i> '.LAN_DOWNLOAD.'</a></li>
                     <li><a href="'.$data['infourl'].'" rel="external"><i class="fa fa-file-text-o "></i> Release Notes</a></li>
                 </ul>
@@ -2094,7 +2299,7 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 
 		$tmpl = strtoupper(varset($parms['tmpl'], 'E_ADMIN_NAVIGATION'));
 	//	global $$tmpl;
-		$template = e107::getCoreTemplate('admin', 'nav', true);
+		$template = e107::getCoreTemplate('admin', 'nav', false);
 
 
 		if($parm === 'enav_popover') // @todo move to template and make generic.
@@ -2105,11 +2310,24 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 			}
 
 		//	$template = $$tmpl;
+			if(e107::getSession()->get('core-update-status')===true)
+			{
+				$lan = defset('LAN_DATABASE_UPDATE', "An update is available for your database. We recommend [running this update] as soon as possible to ensure that your database is secure and up-to-date.");
+				$srch = array('[',']');
+				$repl = [
+					"<a class='text-info' href='".e_ADMIN_ABS."e107_update.php'>",
+					"</a>"
+				];
+				eHelper::addSystemNotification('core_update', str_replace($srch, $repl, $lan));
+			}
+			else
+			{
+				eHelper::clearSystemNotification('core_update');
+			}
+		//	$upStatus =  (e107::getSession()->get('core-update-status') === true) ? '<span title="' .ADLAN_120. '" class="text-info"><i class="fa fa-database"></i></span>' : '<!-- -->';
 
-
-			$upStatus =  (e107::getSession()->get('core-update-status') === true) ? '<span title="' .ADLAN_120. '" class="text-info"><i class="fa fa-database"></i></span>' : '<!-- -->';
-
-			return varset($template['start']). '<li><a id="e-admin-core-update" tabindex="0" href="'.e_ADMIN_ABS.'e107_update.php" class="e-popover text-primary" role="button" data-container="body" data-toggle="popover" data-bs-toggle="popover" data-placement="right" data-trigger="bottom" data-content="'.$tp->toAttribute(ADLAN_120).'">'.$upStatus.'</a></li>' .varset($template['end']);
+			return;
+		//	return varset($template['start']). '<li><a id="e-admin-core-update" tabindex="0" href="'.e_ADMIN_ABS.'e107_update.php" class="e-popover text-primary" role="button" data-container="body" data-toggle="popover" data-bs-toggle="popover" data-placement="right" data-trigger="bottom" data-content="'.$tp->toAttribute(ADLAN_120).'">'.$upStatus.'</a></li>' .varset($template['end']);
 
 		}
 
@@ -2332,7 +2550,7 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 				$tmp[$c]['text']            = $sc->sc_nav_link_name();
 				$tmp[$c]['description']     = $tp->toHTML($lk['link_description'], '', 'defs');
 				$tmp[$c]['link']            = $sc->sc_nav_link_url(); // $tp->replaceConstants($link,'full');
-				$tmp[$c]['image']           = $sc->sc_nav_link_icon(); // vartrue($lk['link_button']) ? "<img class='icon S16' src='".$tp->replaceConstants($lk['link_button'])."' alt='".$tp->toAttribute($lk['link_description'],'','defs')."' />": '';
+				$tmp[$c]['image']           = $sc->sc_nav_link_icon(['class'=>'icon S16']); // vartrue($lk['link_button']) ? "<img class='icon S16' src='".$tp->replaceConstants($lk['link_button'])."' alt='".$tp->toAttribute($lk['link_description'],'','defs')."' />": '';
 				$tmp[$c]['image_large']     = '';
 				$tmp[$c]['image_src']       = vartrue($lk['link_button']);
 				$tmp[$c]['image_large_src'] = '';
@@ -2348,7 +2566,7 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 			
 			$tmp[1]['text']            = LAN_SETTINGS;
 			$tmp[1]['description']     = ADLAN_151;
-			$tmp[1]['link']            = e_BASE.'usersettings.php';
+			$tmp[1]['link']            = e107::getUrl()->create('user/myprofile/edit',array('id'=>USERID)); //e_BASE.'usersettings.php';
 			$tmp[1]['image']           = "<i class='S16 e-settings-16'></i>"; // "<img src='".E_16_CAT_SETT."' alt='".ADLAN_151."' class='icon S16' />";
 			$tmp[1]['image_large']     = '';
 			$tmp[1]['image_src']       = '';
@@ -2357,18 +2575,18 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 
 			// If not Main Admin and "Apply dashboard preferences to all administrators"
 			// is checked in admin theme settings.
-			// $adminPref = e107::getConfig()->get('adminpref', 0);
-			// if($adminPref == 0 || getperms('1'))
-			// {
-			// 	$tmp[2]['text'] = LAN_PERSONALIZE;
-			// 	$tmp[2]['description'] = 'Customize administration panels';
-			// 	$tmp[2]['link'] = e_ADMIN . 'admin.php?mode=customize';
-			// 	$tmp[2]['image'] = "<i class='S16 e-admins-16'></i>"; //E_16_ADMIN; // "<img src='".E_16_NAV_ADMIN."' alt='".ADLAN_151."' class='icon S16' />";
-			// 	$tmp[2]['image_large'] = '';
-			// 	$tmp[2]['image_src'] = '';
-			// 	$tmp[2]['image_large_src'] = '';
-			// 	//	$tmp[2]['perm'] = '';
-			// }
+			$adminPref = e107::getConfig()->get('adminpref', 0);
+			if($adminPref == 0 || getperms('1'))
+			{
+				$tmp[2]['text'] = LAN_PERSONALIZE;
+				$tmp[2]['description'] = 'Customize administration panels';
+				$tmp[2]['link'] = e_ADMIN . 'admin.php?mode=customize';
+				$tmp[2]['image'] = "<i class='S16 e-admins-16'></i>"; //E_16_ADMIN; // "<img src='".E_16_NAV_ADMIN."' alt='".ADLAN_151."' class='icon S16' />";
+				$tmp[2]['image_large'] = '';
+				$tmp[2]['image_src'] = '';
+				$tmp[2]['image_large_src'] = '';
+				//	$tmp[2]['perm'] = '';
+			}
 			
 			
 			$tmp[3]['text']            = LAN_LOGOUT;
@@ -2391,44 +2609,44 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 
 			
 							
-			// $tmp[5]['text'] 			= 'e107 Website';
-			// $tmp[5]['description'] 		= '';
-			// $tmp[5]['link'] 			= 'https://e107.org';
-			// $tmp[5]['image'] 			= defset('E_16_E107');
-			// $tmp[5]['image_large'] 		= '';
-			// $tmp[5]['image_src'] 		= '';
-			// $tmp[5]['image_large_src'] 	= '';
-			// $tmp[5]['link_class']		= '';
+			$tmp[5]['text'] 			= 'e107 Website';
+			$tmp[5]['description'] 		= '';
+			$tmp[5]['link'] 			= 'https://e107.org';
+			$tmp[5]['image'] 			= defset('E_16_E107');
+			$tmp[5]['image_large'] 		= '';
+			$tmp[5]['image_src'] 		= '';
+			$tmp[5]['image_large_src'] 	= '';
+			$tmp[5]['link_class']		= '';
 
 										
-			// $tmp[6]['text'] 			= 'e107 on Twitter';
-			// $tmp[6]['description'] 		= '';
-			// $tmp[6]['link'] 			= 'https://twitter.com/e107';
-			// $tmp[6]['image'] 			= defset('E_16_TWITTER'); // "<img src='".E_16_NAV_LGOT."' alt='".ADLAN_151."' class='icon S16' />";
-			// $tmp[6]['image_large'] 		= '';
-			// $tmp[6]['image_src'] 		= '';
-			// $tmp[6]['image_large_src'] 	= '';
-			// $tmp[6]['link_class']		= '';
+			$tmp[6]['text'] 			= 'e107 on Twitter';
+			$tmp[6]['description'] 		= '';
+			$tmp[6]['link'] 			= 'https://twitter.com/e107';
+			$tmp[6]['image'] 			= defset('E_16_TWITTER'); // "<img src='".E_16_NAV_LGOT."' alt='".ADLAN_151."' class='icon S16' />";
+			$tmp[6]['image_large'] 		= '';
+			$tmp[6]['image_src'] 		= '';
+			$tmp[6]['image_large_src'] 	= '';
+			$tmp[6]['link_class']		= '';
 								
 							
-			// $tmp[7]['text'] 			= 'e107 on Facebook';
-			// $tmp[7]['description'] 		= '';
-			// $tmp[7]['link'] 			= 'https://www.facebook.com/e107CMS';
-			// $tmp[7]['image'] 			= defset('E_16_FACEBOOK'); // "<img src='".E_16_NAV_LGOT."' alt='".ADLAN_151."' class='icon S16' />";
-			// $tmp[7]['image_large'] 		= '';
-			// $tmp[7]['image_src'] 		= '';
-			// $tmp[7]['image_large_src'] 	= '';
-			// $tmp[7]['link_class']		= '';	
+			$tmp[7]['text'] 			= 'e107 on Facebook';
+			$tmp[7]['description'] 		= '';
+			$tmp[7]['link'] 			= 'https://www.facebook.com/e107CMS';
+			$tmp[7]['image'] 			= defset('E_16_FACEBOOK'); // "<img src='".E_16_NAV_LGOT."' alt='".ADLAN_151."' class='icon S16' />";
+			$tmp[7]['image_large'] 		= '';
+			$tmp[7]['image_src'] 		= '';
+			$tmp[7]['image_large_src'] 	= '';
+			$tmp[7]['link_class']		= '';	
 	
 			
-			// $tmp[8]['text'] 			= 'e107 on Github';
-			// $tmp[8]['description'] 		= '';
-			// $tmp[8]['link'] 			= 'https://github.com/e107inc';
-			// $tmp[8]['image'] 			= defset('E_16_GITHUB'); // "<img src='".E_16_NAV_LGOT."' alt='".ADLAN_151."' class='icon S16' />";
-			// $tmp[8]['image_large'] 		= '';
-			// $tmp[8]['image_src'] 		= '';
-			// $tmp[8]['image_large_src'] 	= '';
-			// $tmp[8]['link_class']		= '';					
+			$tmp[8]['text'] 			= 'e107 on Github';
+			$tmp[8]['description'] 		= '';
+			$tmp[8]['link'] 			= 'https://github.com/e107inc';
+			$tmp[8]['image'] 			= defset('E_16_GITHUB'); // "<img src='".E_16_NAV_LGOT."' alt='".ADLAN_151."' class='icon S16' />";
+			$tmp[8]['image_large'] 		= '';
+			$tmp[8]['image_src'] 		= '';
+			$tmp[8]['image_large_src'] 	= '';
+			$tmp[8]['link_class']		= '';					
 				
 			$menu_vars[$type]['text'] = ''; // ADMINNAME; // ""; // ADMINNAME;
 			$menu_vars[$type]['link'] = '#';
@@ -2563,12 +2781,14 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 		e107::setRegistry('core/e107/menu-manager/curLayout',$action);
 
 		$icon  = e107::getParser()->toIcon('e-menus-24');
-		$caption = $icon. '<span>' .ADLAN_6. '</span>';
+		$caption = '<span>' .ADLAN_6. '</span>';
 
 				$diz = MENLAN_58;
 
 		$caption .= "<span class='e-help-icon pull-right'><a data-placement=\"bottom\" class='e-tip' title=\"".e107::getParser()->toAttribute($diz). '">' .defset('ADMIN_INFO_ICON'). '</a></span>';
 
+		$var['_extras_']['icon'] = e107::getParser()->toIcon('e-menus-24');
+		
 	   return e107::getNav()->admin($caption,$action, $var);
 
 
@@ -2680,7 +2900,7 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 
 	/**
 	 * @param string $text
-	 * @return string
+	 * @return string|null
 	 */
 	private function renderHelpIcon()
 	{
