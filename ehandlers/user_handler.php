@@ -883,6 +883,9 @@ Following fields auto-filled in code as required:
 			}
 			else
 			{	// See if email address banned
+				// LITE MODIFICATION: $v is escaped via $u_sql->escape() before it is
+				// interpolated into the banlist_ip WHERE clause. Upstream interpolates the
+				// raw email as "{$v}".
 				$wc = e107::getIPHandler()->makeEmailQuery($v);		// Generate the query for the ban list
 				if ($wc) { $wc = "`banlist_ip`='".$u_sql->escape($v)."' OR ".$wc;  }
 				if (($wc === false) || !e107::getIPHandler()->checkBan($wc, false, TRUE))
