@@ -265,5 +265,5 @@ return [
     'EPL_ADLAN_254' => "This will check your plugin's language files for errors and common or duplicate LAN definitions.",
     'EPL_ADLAN_255' => "Overwrite Files",
     'EPL_ADLAN_256' => "Skipped [x] (already exists)",
-    'EPL_ADLAN_257' => "Readonly"
+    'EPL_ADLAN_257' => "Readonly",
 ];
