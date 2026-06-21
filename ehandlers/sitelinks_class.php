@@ -1326,7 +1326,14 @@ i.e-cat_users-32{ background-position: -555px 0; width: 32px; height: 32px; }
 			{
 				$func_list[] = $temp[$key]['text'];
 			}
-	
+
+			// LITE MODIFICATION: de-duplicate before the text cross-join below;
+			// otherwise K entries sharing the same display name are emitted K²
+			// times in sorted admin categories.
+			// Reported upstream: https://github.com/e107inc/e107/issues/5786
+			// REVERT WHEN: upstream #5786 is merged.
+			$func_list = array_unique($func_list);
+
 			usort($func_list, 'strcoll');
 	
 			foreach ($func_list as $func_text)
