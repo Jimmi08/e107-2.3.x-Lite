@@ -716,46 +716,25 @@ class admin_shortcodes extends e_shortcode
 			return ADLAN_51.' ...';
 		}
 	}
-
+	/* LITE MODIFICATION for backend admin_template.php */
 	public function sc_admin_logo($parm=null)
 	{
-		//	parse_str($parm);
+		//	this is hardcoded admin navbar logo for e107 2
+		$default = '<img class="admin-logo" src="'.e_THEME_ABS.'bootstrap3/images/logo.webp" alt="e107"  />';
 
-
-		if (isset($file) && $file && is_readable($file))
-		{
-			$logo = $file;
-			$path = $file;
-		}
-		else if (is_readable(THEME.'images/e_adminlogo.png'))
-		{
-			$logo = THEME_ABS.'images/e_adminlogo.png';
-			$path = THEME.'images/e_adminlogo.png';
-		}
-		else
-		{
-			$logo = e_IMAGE_ABS.'adminlogo.png';
-			$path = e_IMAGE.'adminlogo.png';
-		}
-
-		$dimensions = getimagesize($path);
-
-		$image = "<img class='logo admin_logo' src='".$logo."' style='width: ".$dimensions[0]. 'px; height: ' .$dimensions[1]."px' alt='".ADLAN_153."' />\n";
-
-		if (isset($link) && $link)
-		{
-			if ($link === 'index')
-			{
-				$image = "<a href='".e_ADMIN_ABS."index.php'>".$image.'</a>';
+		//check if custom core plugin is installed
+		if (e107::isInstalled('SP_Core'))
+		{  
+			$admin_logo = e107::getPlugConfig('SP_Core')->getPref('admin_logo');
+			if($admin_logo) {
+				$admin_logo = e107::getParser()->replaceConstants($admin_logo, 'full') ;
+				$image = '<img class="admin-logo" src="' . $admin_logo .  '" alt="e107"  />';
+				return $image;
 			}
-			else
-			{
-				$image = "<a href='".$link."'>".$image.'</a>';
-			}
+			
 		}
-		return $image;
+		return $default; 
 	}
-
 	public function sc_admin_menu($parm=null)
 	{
 		if (!ADMIN)
