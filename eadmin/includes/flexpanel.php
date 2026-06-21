@@ -76,7 +76,14 @@ class adminstyle_flexpanel extends adminstyle_infopanel
 			e107::css('inline', '.draggable-panels .panel-heading { cursor: move; }');
 			e107::js('core', 'core/admin.flexpanel.js', 'jquery', 4);
 
- 
+			// LITE MODIFICATION   if(varset($_GET['mode']) == 'customize')
+			// {
+			//	e107::css('inline', '.layout-container { display: table; margin-left: auto; margin-right: auto; }');
+			//	e107::css('inline', '.layout-container label.radio { float: left; padding: 0; width: 120px; margin: 7px; cursor: pointer; text-align: center; }');
+			//	e107::css('inline', '.layout-container label.radio img { margin-left: auto; margin-right: auto; display: block; }');
+			//	e107::css('inline', '.layout-container label.radio input { width: 100%; margin-left: auto; margin-right: auto; display: block; }');
+			//	e107::css('inline', '.layout-container label.radio p { width: 100%; text-align: center; display: block; margin: 20px 0 0 0; }');
+			//}
 
 			// Save posted Layout type.
 			if(varset($_POST['e-flexpanel-layout']))
@@ -108,7 +115,17 @@ class adminstyle_flexpanel extends adminstyle_infopanel
 		$frm = e107::getForm();
 
 		$user_pref = $this->getUserPref();
- 
+
+		// LITE MODIFICATION if(varset($_GET['mode']) == 'customize')
+		//{
+		//	echo $frm->open('infopanel', 'post', e_SELF);
+		//	echo $ns->tablerender(LAN_DASHBOARD_LAYOUT, $this->renderLayoutPicker(), 'personalize', true);
+		//	echo '<div class="clear">&nbsp;</div>';
+		//	echo $this->render_infopanel_options(true);
+		//	echo $frm->close();
+		//	return;
+		//}
+
 		// Default menu areas.
 		$panels = array(
 			'menu-area-01' => array(), // Sidebar.
@@ -181,10 +198,10 @@ class adminstyle_flexpanel extends adminstyle_infopanel
 				
 			}
 
-			// if($count == 20)
-			// {
-			// 	break;
-			// }
+			if($count == 20)
+			{
+				break;
+			}
 		}
 		$mainPanel .= "</div></div>";
 
@@ -202,19 +219,19 @@ class adminstyle_flexpanel extends adminstyle_infopanel
 
 
 		// --------------------- e107 News --------------------------------
-		// $newsTabs = array();
-		// $newsTabs['coreFeed'] = array('caption' => LAN_GENERAL, 'text' => "<div id='e-adminfeed' style='min-height:300px'></div><div class='right'><a rel='external' href='" . ADMINFEEDMORE . "'>" . LAN_MORE . "</a></div>");
-		// $newsTabs['pluginFeed'] = array('caption' => LAN_PLUGIN, 'text' => "<div id='e-adminfeed-plugin'></div>");
-		// $newsTabs['themeFeed'] = array('caption' => LAN_THEMES, 'text' => "<div id='e-adminfeed-theme'></div>");
-		// $ns->setStyle('flexpanel');
-		// $ns->setUniqueId('core-infopanel_news');
-		// $coreInfoPanelNews = $ns->tablerender(LAN_LATEST_e107_NEWS, e107::getForm()->tabs($newsTabs, array('active' => 'coreFeed')), "core-infopanel_news", true);
-		// $info = $this->getMenuPosition('core-infopanel_news');
-		// if (!isset($panels[$info['area']][$info['weight']]))
-		// {
-		// 	$panels[$info['area']][$info['weight']] = '';
-		// }
-		// $panels[$info['area']][$info['weight']] .= $coreInfoPanelNews;
+		$newsTabs = array();
+		$newsTabs['coreFeed'] = array('caption' => LAN_GENERAL, 'text' => "<div id='e-adminfeed' style='min-height:300px'></div><div class='right'><a rel='external' href='" . ADMINFEEDMORE . "'>" . LAN_MORE . "</a></div>");
+		$newsTabs['pluginFeed'] = array('caption' => LAN_PLUGIN, 'text' => "<div id='e-adminfeed-plugin'></div>");
+		$newsTabs['themeFeed'] = array('caption' => LAN_THEMES, 'text' => "<div id='e-adminfeed-theme'></div>");
+		$ns->setStyle('flexpanel');
+		$ns->setUniqueId('core-infopanel_news');
+		$coreInfoPanelNews = $ns->tablerender(LAN_LATEST_e107_NEWS, e107::getForm()->tabs($newsTabs, array('active' => 'coreFeed')), "core-infopanel_news", true);
+		$info = $this->getMenuPosition('core-infopanel_news');
+		if (!isset($panels[$info['area']][$info['weight']]))
+		{
+			$panels[$info['area']][$info['weight']] = '';
+		}
+		$panels[$info['area']][$info['weight']] .= $coreInfoPanelNews;
 
 
 		// --------------------- Website Status ---------------------------

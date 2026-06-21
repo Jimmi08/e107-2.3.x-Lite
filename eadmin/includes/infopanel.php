@@ -15,7 +15,12 @@ if (!defined('e107_INIT'))
 	exit;
 }
 
- 
+
+//LITE MODIFICATION define('ADMINFEEDMORE', 'https://e107.org/blog');
+
+
+
+
 
 class adminstyle_infopanel
 {
@@ -253,10 +258,10 @@ class adminstyle_infopanel
 
 				}
 
-				// if($count == 20)
-				// {
-				// 	break;
-				// }
+				//LITE MODIFICATION if($count == 20)
+				//{
+				//	break;
+				//}
 			}
 	
 			// $mainPanel .= "<div class='clear'>&nbsp;</div>";
@@ -274,7 +279,16 @@ class adminstyle_infopanel
 		
 	
 	//  ------------------------------- e107 News --------------------------------
- 
+
+		//LITE MODIFICATION $newsTabs = array();
+		//$newsTabs['coreFeed'] = array('caption'=>LAN_GENERAL,'text'=>"<div id='e-adminfeed' style='min-height:300px'></div><div class='right'><a rel='external' href='".ADMINFEEDMORE."'>".LAN_MORE."</a></div>");
+		//$newsTabs['pluginFeed'] = array('caption'=>LAN_PLUGIN,'text'=>"<div id='e-adminfeed-plugin'></div>");
+		//$newsTabs['themeFeed'] = array('caption'=>LAN_THEMES,'text'=>"<div id='e-adminfeed-theme'></div>");
+
+		//$text2 = $ns->tablerender(LAN_LATEST_e107_NEWS,e107::getForm()->tabs($newsTabs, array('active'=>'coreFeed')),"core-infopanel_news",true);
+	
+	
+	
 	
 	// ---------------------Latest Stuff ---------------------------
 	
@@ -346,37 +360,43 @@ class adminstyle_infopanel
 		
 	//	$text .= "</div>";
 		
-		if(vartrue($_GET['mode']) != 'customize')
-		{
-			// $ns->tablerender(ADLAN_47." ".ADMINNAME, $emessage->render().$text);	
-			echo $mes->render().'
+		//LITE MODIFICATION if(vartrue($_GET['mode']) != 'customize')
+		//{
+		//	// $ns->tablerender(ADLAN_47." ".ADMINNAME, $emessage->render().$text);	
+		//	echo $mes->render().'
+		//
+		//
+		//
+		//	<!-- INFOPANEL -->
+		//
+		//	<div class="row">
+		//		 <div class="span6 col-md-12">
+		//		    '.$text3.'
+		//		 </div>
+		//	</div>
+		//
+		//
+		//	<div class="row">
+		//		<div class="span6 col-md-6">
+		//		    '.$text.'
+		//		 </div>
+		//
+		//		 <div class="span6 col-md-6">
+		//		    '.$text2.'
+		//		 </div>
+		//	</div>
+		//	<!--  -->  
+		//	 
+		//	 
+		//	 ';
+		//}
+		//else
+		//{
+		//	echo $frm->open('infopanel','post', e_SELF);
+		//	echo $this->render_infopanel_options(true);	
+		//	echo $frm->close();
+		//}
 
-
-
-			<!-- INFOPANEL -->
-
-			<div class="row">
-				 <div class="span6 col-md-12">
-				    '.$text3.'
-				 </div>
-			</div>
-
-
-			<div class="row">
-				<div class="span6 col-md-6">
-				    '.$text.'
-				 </div>
-
-				 <div class="span6 col-md-6">
-				    '.$text2.'
-				 </div>
-			</div>
-			<!--  -->  
-			 
-			 
-			 ';
-		}
-	 
 	}
 /*
 	private function renderChart()
@@ -736,3 +756,4 @@ class adminstyle_infopanel
 	
 }
 ?>
+

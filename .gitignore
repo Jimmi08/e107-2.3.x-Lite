@@ -422,3 +422,8 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 e107-v2.3.4-audit.md
+eadmin/includes/categories.php
+eadmin/includes/classis.php
+eadmin/includes/combo.php
+eadmin/includes/compact.php
+eadmin/includes/tabbed.php
