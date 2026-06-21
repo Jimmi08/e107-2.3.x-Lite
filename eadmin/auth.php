@@ -8,7 +8,7 @@
  *
  * Administration Area Authorization
  *
- * $Source: /cvs_backup/e107_0.8/e107_admin/auth.php,v $
+ * $Source: /cvs_backup/e107_0.8/eadmin/auth.php,v $
  * $Revision$
  * $Date$
  * $Author$
@@ -27,11 +27,14 @@ define('e_CAPTCHA_FONTCOLOR','#F9A533');
 // Required for a clean v1.x -> v2 upgrade. 
 $core = e107::getConfig();
 $adminTheme = $core->get('admintheme');
-if($adminTheme !== 'backend'/* && $adminTheme !== 'bootstrap5'*/)
+// LITE MODIFICATION
+// NEW ADMIN THEME BACKEND 
+
+if($adminTheme !== 'backend' /*&& $adminTheme !== 'bootstrap5'*/)
 {
-	$core->update('admintheme', 'backend');
-	$core->update('adminstyle','infopanel');
-	$core->update('admincss','css/modern-light.css');
+	$core->update('admintheme','backend');
+	$core->update('adminstyle','idashboard');
+	$core->update('admincss','css/admin-exas-core.css');
 	$core->set('e_jslib_core',array('prototype' => 'none', 'jquery'=> 'auto'));
 	$core->save();	
 	e107::getRedirect()->redirect(e_SELF);		
@@ -51,12 +54,14 @@ if(USER && !getperms('0') && vartrue($pref['multilanguage']) && !getperms(e_LANG
 	$lng = e107::getLanguage();
 
 	$tmp = explode(".",ADMINPERMS);
+
 	foreach($tmp as $ln)
 	{
-		if(strlen($ln) < 3) // not a language perm.
-		{
-			continue;
-		}
+
+		if(strlen($ln) < 3 || preg_match('/\d/', $ln)) // Skip if less than 2 chars or contains a number
+	    {
+	        continue;
+	    }
 
 		if($lng->isValid($ln))
 		{
@@ -282,7 +287,7 @@ class auth
 		<div>";
 
 		e107::lan('core', 'login');
-		$text .= e107::getMessage()->render(); // see e107_handlers/login.php L622
+		$text .= e107::getMessage()->render(); // see ehandlers/login.php L622
 		$text .= "<script>
 			window.setTimeout(function() {
 		    $('.alert').fadeTo(500, 0).slideUp(500, function(){
@@ -357,3 +362,5 @@ class auth
 
 
 }
+
+

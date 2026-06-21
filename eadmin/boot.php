@@ -22,7 +22,7 @@ if(!e107::isCli())
 	header('Content-type: text/html; charset=utf-8', TRUE);
 }
 
-//define('ADMINFEED', 'https://e107.org/adminfeed');
+//LITE MODIFICATION  define('ADMINFEED', 'https://e107.org/adminfeed');
 
 if(!empty($_GET['iframe']) && !defined('e_IFRAME')) // global iframe support.
 {
@@ -80,7 +80,7 @@ if(e_AJAX_REQUEST && getperms('0') &&  varset($_GET['mode']) == 'addons' && ($_G
 	$tp = e107::getParser();
 	$ns->setUniqueId('e-addon-updates');
 	$ns->setStyle('warning');
-	$ret = $ns->tablerender($tp->toGlyph('fa-arrow-circle-o-down').LAN_UPDATE_AVAILABLE,$text,'default', true);
+	$ret = $ns->tablerender($tp->toGlyph('fa-arrow-circle-o-down').defset('LAN_UPDATE_AVAILABLE'),$text,'default', true);
 
 	echo $ret;
 
@@ -96,35 +96,35 @@ if(e_AJAX_REQUEST && getperms('0') &&  varset($_GET['mode']) == 'addons' && ($_G
 
 if(e_AJAX_REQUEST &&  ADMIN && varset($_GET['mode']) == 'core' && ($_GET['type'] == 'feed'))
 {
-
-	// $limit = 3;
-
-	// if($data = e107::getXml()->getRemoteFile(ADMINFEED,3))
-	// {
-	// //	print_a($data);
-	// 	$rows = e107::getXml()->parseXml($data, 'advanced');
-	// 	$defaultImg = $rows['channel']['image']['url'];
-
-	// 	$text = '<div style="margin-left:10px;margin-top:10px">';
-	// 	$count = 1;
-	// 	$tp = e107::getParser();
-	// 	foreach($rows['channel']['item'] as $row)
-	// 	{
-	// 		if($count > $limit){ break; }
-
-	// 		$description = $tp->toText($row['description']);
-	// 		$text .= '
-	// 		<div class="media">
-	// 		  <div class="media-body">
-	// 		    <h4 class="media-heading"><a target="_blank" href="'.$row['link'].'">'.$row['title'].'</a> <small>— '.$row['pubDate'].'</small></h4>
-	// 		   '.$tp->text_truncate($description,150).'
-	// 		  </div></div>';
-	// 		  $count++;
-	// 	}
-	// 	$text .= '</div>';
-	// 	echo $text;
-
-	// }
+	// LITE MODIFICATION
+	//$limit = 3;
+	//
+	//if($data = e107::getXml()->getRemoteFile(ADMINFEED,3))
+	//{
+	//	print_a($data);
+	//	$rows = e107::getXml()->parseXml($data, 'advanced');
+	//	$defaultImg = $rows['channel']['image']['url'];
+	//
+	//	$text = '<div style="margin-left:10px;margin-top:10px">';
+	//	$count = 1;
+	//	$tp = e107::getParser();
+	//	foreach($rows['channel']['item'] as $row)
+	//	{
+	//		if($count > $limit){ break; }
+	//
+	//		$description = $tp->toText($row['description']);
+	//		$text .= '
+	//		<div class="media">
+	//		  <div class="media-body">
+	//		    <h4 class="media-heading"><a target="_blank" href="'.$row['link'].'">'.$row['title'].'</a> <small>— '.$row['pubDate'].'</small></h4>
+	//		   '.$tp->text_truncate($description,150).'
+	//		  </div></div>';
+	//		  $count++;
+	//	}
+	//	$text .= '</div>';
+	//	echo $text;
+	//
+	//}
 	/*else
 	{
 		if(e_DEBUG)
@@ -242,7 +242,7 @@ e107::getDebug()->logTime('[boot.php: After Loading admin_icons]');
 if(!defset('e_ADMIN_UI') && !defset('e_PAGETITLE'))
 {
 	e107::getDebug()->logTime('[boot.php: Loading adminLinks(\'legacy\')]');
-	$array_functions = e107::getNav()->adminLinks('legacy'); // replacement see e107_handlers/sitelinks.php
+	$array_functions = e107::getNav()->adminLinks('legacy'); // replacement see ehandlers/sitelinks.php
 	foreach($array_functions as $val)
 	{
 	    $link = str_replace("../","",$val[0]);
@@ -292,7 +292,7 @@ function admin_purge_related($table, $id)
 	$num = $_com->delete_comments($table, $id);
 	if ($num)
 	{
-		$msg .= $num." ".LAN_COMMENTS." ".LAN_DELETED."<br />";
+		$msg .= $num." ".LAN_COMMENTS." ".defset('LAN_DELETED', 'Deleted')."<br />";
 	}
 
 	// Delete any related ratings
@@ -301,7 +301,7 @@ function admin_purge_related($table, $id)
 	$num = $_rate->delete_ratings($table, $id);
 	if ($num)
 	{
-		$msg .= LAN_RATING." ".LAN_DELETED."<br />";
+		$msg .= LAN_RATING." ".defset('LAN_DELETED', 'Deleted')."<br />";
 	}
 
 	if ($msg)
@@ -365,3 +365,4 @@ if (!function_exists('show_admin_menu'))
 }
 
 // parse_admin() has been replaced by e107::renderLayout()
+

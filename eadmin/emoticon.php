@@ -421,19 +421,20 @@ class emotec
 		$tp = e107::getParser();
 
 
-		$packID = $tp->filter($_POST['packID']);
+		$packID = $_POST['packID'];
 		unset($_POST['sub_conf'], $_POST['packID']);
 		$encoded_emotes = $tp->toDB($_POST);
 		//	$tmp = addslashes(serialize($encoded_emotes));
 		$tmp = e107::serialize($encoded_emotes, true);
 
-		if ($sql->select("core", "*", "e107_name='emote_" . $packID . "'"))
+		$emoteName = 'emote_' . $packID;
+		if ($sql->createQueryBuilder()->select('*')->from('core')->where('e107_name', $emoteName)->execute())
 		{
-			e107::getMessage()->addAuto($sql->update("core", "`e107_value`='{$tmp}' WHERE `e107_name`='emote_" . $packID . "' "), 'update', LAN_SETSAVED, false, false);
+			e107::getMessage()->addAuto($sql->createQueryBuilder()->update('core')->set('e107_value', $tmp)->where('e107_name', $emoteName)->execute(), 'update', LAN_SETSAVED, false, false);
 		}
 		else
 		{
-			e107::getMessage()->addAuto($sql->insert("core", "'emote_" . $packID . "', '$tmp' "), 'insert', LAN_SETSAVED, false, false);
+			e107::getMessage()->addAuto($sql->createQueryBuilder()->insert('core')->values(array('e107_name' => $emoteName, 'e107_value' => $tmp))->execute(), 'insert', LAN_SETSAVED, false, false);
 		}
 	}
 
@@ -705,3 +706,21 @@ class emotec
 
 
 require_once("footer.php");
+
+
+/**
+ * Build the admin sidebar menu (auto-invoked by the {ADMIN_MENU} shortcode).
+ * Provides the icon + caption shown in the left admin panel, consistent with
+ * frontpage.php / docs.php and visible also when the sidebar is collapsed.
+ */
+function emoticon_adminmenu()
+{
+	$var = array();
+	$var['main']['text'] = EMOLAN_PAGE_TITLE;
+	$var['main']['link'] = e_SELF;
+
+	$caption = "<span>".EMOLAN_PAGE_TITLE."</span>";
+	$var['_extras_']['icon'] = e107::getParser()->toIcon('e-emoticons-24');
+
+	return e107::getNav()->admin($caption, 'main', $var);
+}

@@ -159,20 +159,40 @@ class eurl_admin_ui extends e_admin_controller_ui
 			return;
 		}
 
-		// $table, $primary, $input and $output are SQL identifiers taken from request input.
-		// escape() does not protect identifier positions, so validate against a strict allowlist.
-		if(!preg_match('/^[A-Za-z0-9_]+$/', (string) $table)
-			|| !preg_match('/^[A-Za-z0-9_]+$/', (string) $primary)
-			|| !preg_match('/^[A-Za-z0-9_]+$/', (string) $input)
-			|| !preg_match('/^[A-Za-z0-9_]+$/', (string) $output))
-		{
-			e107::getMessage()->addError("Invalid Generator data");
-			return;
-		}
-
 		$sql = e107::getDb();
 
-		$data = $sql->retrieve($table, $primary.",".$input, $input ." != '' ", true);
+		// $table/$primary/$input/$output are SQL identifiers and cannot be bound.
+		// They can arrive raw from $_POST (init() path), so validate each against
+		// the set of identifiers registered in the URL 'generate' config, and
+		// reject anything that is not a syntactically valid identifier.
+		$allowed = array();
+		$gen = e107::getUrlConfig('generate');
+		if(is_array($gen))
+		{
+			foreach($gen as $confSet)
+			{
+				if(!is_array($confSet)) continue;
+				foreach($confSet as $conf)
+				{
+					if(!is_array($conf)) continue;
+					foreach(array('table', 'primary', 'input', 'output') as $key)
+					{
+						if(!empty($conf[$key])) $allowed[$conf[$key]] = true;
+					}
+				}
+			}
+		}
+
+		foreach(array($table, $primary, $input, $output) as $ident)
+		{
+			if(empty($allowed[$ident]) || $sql->quoteIdentifier($ident) === false)
+			{
+				e107::getMessage()->addError("Invalid Generator identifier");
+				return;
+			}
+		}
+
+		$data = $sql->execute("SELECT ".$primary.",".$input." FROM `#".$table."` WHERE ".$input." != ''") ? $sql->rows() : array();
 
 		$success = 0;
 		$failed = 0;
@@ -181,7 +201,7 @@ class eurl_admin_ui extends e_admin_controller_ui
 		{
 			$sef = eHelper::title2sef($row[$input]);
 
-			if($sql->update($table, $output ." = '".$sql->escape($sef)."' WHERE ".$primary. " = ".intval($row[$primary]). " LIMIT 1")!==false)
+			if($sql->execute("UPDATE `#".$table."` SET ".$output." = :sef WHERE ".$primary." = :id LIMIT 1", array('sef' => $sef, 'id' => intval($row[$primary])))!==false)
 			{
 				$success++;
 			}

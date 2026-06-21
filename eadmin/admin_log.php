@@ -156,10 +156,10 @@ class adminlog_admin extends e_admin_dispatcher
 
 		'main/list'			=> array('caption'=> RL_LAN_030, 'perm' => '5'),
 		'audit/list'		=> array('caption'=> RL_LAN_062, 'perm' => '5', 'icon'=>'fa-user'),
-		'rolling/list'		=> array('caption'=> RL_LAN_002, 'perm' => '5'),
+		'rolling/list'		=> array('caption'=> RL_LAN_002, 'perm' => '5', 'icon'=>'fas-sync-alt'),
 		'divider/01'        => array('divider'=>true),
 		'main/prefs' 		=> array('caption'=> LAN_PREFS, 'perm' => '5'),	
-		'main/maintenance'	=> array('caption'=> LAN_OPTIONS, 'perm' => '5', 'icon'=>'fa-wrench')
+		'main/maintenance'	=> array('caption'=> LAN_MAINTENANCE, 'perm' => '5', 'icon'=>'fa-wrench')
 
 		// 'main/custom'		=> array('caption'=> 'Custom Page', 'perm' => 'P')
 	);
@@ -216,12 +216,14 @@ class admin_log_ui extends e_admin_ui
 		
 	
 		protected $prefs = array(	
-			'sys_log_perpage'			=> array('title'=> RL_LAN_044, 'type'=>'dropdown', 'data' => 'int','help'=> RL_LAN_064,'writeParms'=>''),
-			'user_audit_class'			=> array('title'=> RL_LAN_123, 'type'=>'userclass', 'data' => 'int','help'=>''),
-			'user_audit_opts'			=> array('title'=> RL_LAN_031, 'type'=>'method', 'data' => 'array','help'=>''),
-			'roll_log_active'			=> array('title'=> RL_LAN_008, 'type'=>'boolean', 'data' => 'int','help'=>''),
-			'roll_log_days'				=> array('title'=> RL_LAN_009, 'type'=>'number', 'data' => 'string','help'=>''),
-		//	'Delete admin log events older than '		=> array('title'=> RL_LAN_045, 'type'=>'method', 'data' => 'string','help'=>'Help Text goes here'),
+			'sys_log_perpage'			=> array('title'=> 'RL_LAN_044', 'type'=>'dropdown', 'data' => 'int','help'=> 'RL_LAN_064','writeParms'=>''),
+			'roll_log_active'			=> array('title'=> 'RL_LAN_008', 'type'=>'boolean', 'data' => 'int','help'=>''),
+			'roll_log_days'				=> array('title'=> 'RL_LAN_009', 'type'=>'number', 'data' => 'string','help'=>''),
+
+
+			'user_audit_class'			=> array('title'=> 'RL_LAN_123', 'type'=>'userclass', 'data' => 'int','help'=>''),
+			'user_audit_opts'			=> array('title'=> 'RL_LAN_031', 'type'=>'method', 'data' => 'array','help'=>''),
+			//	'Delete admin log events older than '		=> array('title'=> RL_LAN_045, 'type'=>'method', 'data' => 'string','help'=>'Help Text goes here'),
 		//	'Delete user audit trail log events older'		=> array('title'=> 'Delete user audit trail log events older', 'type'=>'method', 'data' => 'string','help'=>'Help Text goes here'),
 		); 
 
@@ -489,10 +491,10 @@ class admin_log_form_ui extends e_admin_form_ui
 		//	define('USER_AUDIT_BANNED', 22); 			// User banned
 		//	define('USER_AUDIT_BOUNCE_RESET', 23); 		// User bounce reset
 		//	define('USER_AUDIT_TEMP_ACCOUNT', 24); 		// User temporary account
-		
+		$RL_LAN_136 = defset('RL_LAN_136', "User navigation trail");
 		
 		$audit_checkboxes = array(USER_AUDIT_SIGNUP => RL_LAN_071, USER_AUDIT_EMAILACK => RL_LAN_072,
-		 USER_AUDIT_LOGIN => LAN_AUDIT_LOG_013, 	USER_AUDIT_LOGOUT 	=> LAN_AUDIT_LOG_014,			// Logout is lumped in with login
+		 USER_AUDIT_LOGIN => LAN_AUDIT_LOG_013, 	USER_AUDIT_LOGOUT 	=> LAN_AUDIT_LOG_014,	USER_AUDIT_NAVIGATION => $RL_LAN_136,		// Logout is lumped in with login
 		USER_AUDIT_NEW_DN => RL_LAN_075, USER_AUDIT_NEW_PW => RL_LAN_076, USER_AUDIT_PW_RES => RL_LAN_078, USER_AUDIT_NEW_EML => RL_LAN_077, USER_AUDIT_NEW_SET => RL_LAN_079, 
 		USER_AUDIT_ADD_ADMIN => RL_LAN_080, USER_AUDIT_MAIL_BOUNCE => RL_LAN_081, USER_AUDIT_BANNED => RL_LAN_082, USER_AUDIT_BOUNCE_RESET => RL_LAN_083,
 		USER_AUDIT_TEMP_ACCOUNT => RL_LAN_084);
@@ -686,7 +688,7 @@ class admin_log_form_ui extends e_admin_form_ui
 				{
 					$id = $this->getController()->getListModel()->get('dblog_id');
 					$ret ="<a class='e-expandit' href='#rem-".$id."'>".RL_LAN_087."</a>";
-					$ret .= "<div style='display:none' id='rem-".$id."'>";
+					$ret .= "<div class='logcanvas' style='display:none;width:33vw' id='rem-".$id."'>";
 					$text = str_replace("<br />","\n",$text);
 					$text = str_replace("&#092;","/",$text);
 					

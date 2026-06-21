@@ -105,7 +105,7 @@ class banlist_ui extends e_admin_ui
 		protected $eventName		= 'ban';
 		protected $table			= 'banlist';
 		protected $pid				= 'banlist_id'; 
-		protected $perPage 			= 100;
+		protected $perPage 			= 100; //LITE MODIFICATION
 		protected $listQry          = "SELECT * FROM `#banlist` WHERE banlist_bantype != 100 ";
 		protected $listOrder		= 'banlist_datestamp DESC';
 
@@ -876,7 +876,7 @@ class banlist_form_ui extends e_admin_form_ui
 		protected $pluginName		= 'failed_login';
 		protected $table			= 'generic';
 		protected $pid				= 'gen_id';
-		protected $perPage 			= 100;
+		protected $perPage 			= 100; //LITE MODIFICATION
 		protected $listQry			= "SELECT * FROM `#generic` WHERE gen_type='failed_login' ";
 		protected $listOrder        = "gen_datestamp DESC";
 
