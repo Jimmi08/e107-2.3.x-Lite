@@ -98,7 +98,13 @@ if (varset($e107_popup) != 1)
 	//NEW - Iframe mod
 	if (!deftrue('e_IFRAME'))
 	{
-		$ADMIN_FOOTER = e107::getCoreTemplate('admin', 'footer', true); //LITE MODIFICATION #5722 UPSTREAM
+		// LITE MODIFICATION: admin template override allowed.
+		// $override=true (vs upstream's false) lets a custom admin theme
+		// override the admin template. Lite uses its own `backend` admin
+		// theme. See upstream issue #5722 — revert if upstream fixes the
+		// override default for admin templates, or if Lite stops shipping
+		// its own admin theme.
+		$ADMIN_FOOTER = e107::getCoreTemplate('admin', 'footer', true); 
 		e107::renderLayout($ADMIN_FOOTER, ['sc'=>'admin']);
 	}
 	

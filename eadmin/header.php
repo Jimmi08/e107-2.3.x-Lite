@@ -575,8 +575,14 @@ if($e107_popup != 1)
 	if(!deftrue('e_IFRAME'))
 	{
 		//removed  check strpos(e_SELF.'?'.e_QUERY, 'menus.php?configure') === FALSE
-		$ADMIN_HEADER = e107::getCoreTemplate('admin', 'header', false);
-		$ADMIN_MODAL = e107::getCoreTemplate('admin', 'modal', false);
+		// LITE MODIFICATION: admin template override allowed.
+		// $override=true (vs upstream's false) lets a custom admin theme
+		// override the admin template (header + modal). Lite uses its own
+		// `backend` admin theme. See upstream issue #5722 — revert if
+		// upstream fixes the override default for admin templates, or if
+		// Lite stops shipping its own admin theme.
+		$ADMIN_HEADER = e107::getCoreTemplate('admin', 'header', true);
+		$ADMIN_MODAL = e107::getCoreTemplate('admin', 'modal', true);
 
 		e107::renderLayout($ADMIN_MODAL . $ADMIN_HEADER, ['sc'=>'admin']);
 	}
