@@ -38,10 +38,15 @@ class news_archive_shortcodes extends e_shortcode
 	}
 
 	
+	// LITE MODIFICATION: escape output + emit the link via e107::url().
+	// Upstream prints news_title unescaped and hardcodes news.php?item.X (legacy).
+	// Reported upstream: https://github.com/e107inc/e107/issues/5785
+	// REVERT WHEN: upstream #5785 is merged (escaping + URL API added upstream).
 	function sc_archive_link()
 	{
-		return "<a href='news.php?item.".$this->var['news_id']."'>".$this->var['news_title']."</a>";
-	
+		$tp    = e107::getParser();
+		$title = $tp->toHTML($this->var['news_title'], TRUE, 'TITLE');
+		return "<a href='".e107::url('news', 'item', $this->var)."'>".$title."</a>";
 	}
 
 	
@@ -59,7 +64,8 @@ class news_archive_shortcodes extends e_shortcode
 
 	function sc_archive_category()
 	{
-		return $this->var['category_name'];
+		// LITE MODIFICATION: escape category_name — see #5785.
+		return e107::getParser()->toHTML($this->var['category_name'], TRUE, 'TITLE');
 	}
 
 
