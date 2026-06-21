@@ -2299,7 +2299,13 @@ Inverse 	10 	<span class="badge badge-inverse">10</span>
 
 		$tmpl = strtoupper(varset($parms['tmpl'], 'E_ADMIN_NAVIGATION'));
 	//	global $$tmpl;
-		$template = e107::getCoreTemplate('admin', 'nav', false);
+		// LITE MODIFICATION: admin template override allowed.
+		// $override=true (vs upstream's false) lets a custom admin theme
+		// override the admin template. Lite uses its own `backend` admin
+		// theme. See upstream issue #5722 — revert if upstream fixes the
+		// override default for admin templates, or if Lite stops shipping
+		// its own admin theme.
+		$template = e107::getCoreTemplate('admin', 'nav', true);
 
 
 		if($parm === 'enav_popover') // @todo move to template and make generic.
