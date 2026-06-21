@@ -6,6 +6,7 @@
  * Released under the terms and conditions of the
  * GNU General Public License (http://www.gnu.org/licenses/gpl.txt)
  *
+ * LITE VERSION
  */
 
 define('e_ADMIN_HOME', true); // used by some admin shortcodes and class2.
@@ -47,26 +48,20 @@ e107::loadAdminIcons(); // Needs to be loaded before infopanel AND in boot.php
 
 
 $e_sub_cat = 'main';
+ 
+//$pref['adminstyle'] = "infopanel";
+require_once(e_ADMIN . 'includes/' . $pref['adminstyle'] . '.php');
 
-if (varset($pref['adminstyle'])=='cascade' || varset($pref['adminstyle'])=='beginner') // Deprecated Admin-include. 
+$_class = 'adminstyle_' . $pref['adminstyle'];
+if(class_exists($_class, false))
 {
-    $pref['adminstyle'] = 'infopanel'; 
+	$adp = new $_class;
 }
-
-if(in_array($pref['adminstyle'], array('infopanel', 'flexpanel')))
+else
 {
-	require_once(e_ADMIN . 'includes/' . $pref['adminstyle'] . '.php');
-
-	$_class = 'adminstyle_' . $pref['adminstyle'];
-	if(class_exists($_class, false))
-	{
-		$adp = new $_class;
-	}
-	else
-	{
-		$adp = new adminstyle_infopanel;
-	}
+	$adp = new adminstyle_infopanel;
 }
+ 
 
 // DEBUG THE ADDON_UPDATED INFOPANEL
 //e107::getCache()->clear('Infopanel_plugin', true);
@@ -90,11 +85,7 @@ e107::getDebug()->logTime('(After Admin Checks)');
 $mes = e107::getMessage();
 
 if (!isset($pref['adminstyle'])) $pref['adminstyle'] = 'infopanel';		// Shouldn't be needed - but just in case
-
-
-
-
-
+ 
 class admin_start
 {
 
@@ -135,20 +126,16 @@ class admin_start
 			return null;
 		}
 
-
 		if(!e107::getDb()->isTable('admin_log')) // Upgrade from v1.x to v2.x required.
 		{
 		    $this->upgradeRequiredFirst = true;
         }
-
-     //   eHelper::clearSystemNotification(); // clear the notifications.
 
 		// Files that can cause comflicts and problems.
         $fileInspector = e107::getFileInspector();
 		$this->deprecated = $fileInspector::getCachedDeprecatedFiles();
 
 		$this->checkCoreVersion();
-		$this->checkDependencies();
 
 		if(!empty($_POST['delete-deprecated']))
 		{
@@ -179,8 +166,8 @@ class admin_start
 		e107::getDebug()->logTime('Check Deprecated');
 		$this->checkDeprecated();
 
-		e107::getDebug()->logTime('Check HTMLArea');
-		$this->checkHtmlarea();
+		//e107::getDebug()->logTime('Check HTMLArea');
+		//$this->checkHtmlarea();
 
 		e107::getDebug()->logTime('Check Htaccess');
 		$this->checkHtaccess();
@@ -209,8 +196,7 @@ class admin_start
 		$this->checkDeveloperMode(); 
 
 
-
-		if($this->refresh)
+		if($this->refresh == true)
 		{
 			e107::getRedirect()->go(e_REQUEST_SELF);
 		}
@@ -218,9 +204,7 @@ class admin_start
 		// delete half-completed user accounts. (previously called in header.php )
 		e107::getUserSession()->deleteExpired();
 
-	}
-
-
+	}	
 
 	private function checkPaths()
 	{
@@ -239,12 +223,8 @@ class admin_start
 				else
 				{
 					$message = e107::getParser()->lanVars(ADLAN_187,$dr,true);
-					eHelper::addSystemNotification('check_paths_'.sha1($dr), $message);
+					$mes->addWarning($message);
 				}
-			}
-			else
-			{
-				eHelper::clearSystemNotification('check_paths_'.sha1($dr));
 			}
 		}
 
@@ -295,7 +275,7 @@ class admin_start
 		// auto db update
 		if ('0' != ADMINPERMS)
 		{
-			return;
+			return null;
 		}
 
         if($this->upgradeRequiredFirst)
@@ -457,36 +437,7 @@ TMPO;
 	private function checkNewInstall()
 	{
 
-		$upgradeAlertFlag = e_CACHE.'dismiss.upgrade.alert.txt';
-
-		if(!empty($_GET['dismiss']) && $_GET['dismiss'] == 'upgrade')
-		{
-			file_put_contents($upgradeAlertFlag,'true');
-		}
-
-		$pref = e107::getPref('install_date');
-
-		$v2ReleaseDate = strtotime('August 27, 2015');
-
-		$numDays = (abs($pref - time())/60/60/24);
-
-		if($numDays < 3) // installed in the past 3 days.
-		{
-			$srch = array('[',']');
-			$repl = array("<a href='https://github.com/e107inc/e107/discussions' target='_blank' rel='external'>","</a>");
-			echo e107::getMessage()->setTitle(ADLAN_190,E_MESSAGE_INFO)->addInfo("<p>".str_replace($srch,$repl,ADLAN_192)."</p>")->render();
-		}
-		elseif($pref < $v2ReleaseDate && !file_exists($upgradeAlertFlag)) // installed prior to v2 release.
-		{
-			$srch = array('[',']');
-			$repl = array("<a href='https://github.com/e107inc/e107/discussions' target='_blank' rel='external'>","</a>");
-			$message = str_replace($srch,$repl,ADLAN_191);
-			$message .= "<div class='text-right'><a class='btn btn-xs btn-primary ' href='admin.php?dismiss=upgrade'>".LAN_DONT_SHOW_AGAIN."</a></div>"; //todo do it with class=e-ajax and data-dismiss='alert'
-			echo e107::getMessage()->setTitle(LAN_UPGRADING,E_MESSAGE_INFO)->addInfo($message)->render();
-		}
-
-		e107::getMessage()->setTitle(null,E_MESSAGE_INFO);
-
+		return false;
 
 	}
 
@@ -499,13 +450,13 @@ TMPO;
 		if(deftrue('e_MEDIA') && is_dir(e_MEDIA) && !is_writable(e_MEDIA))
 		{
 			$message = str_replace("[x]", e_MEDIA, ADLAN_193);
-			$mes->addWarning($message);
+			$mes->addWarning($message);			
 		}	
 		
 		if(deftrue('e_SYSTEM') && is_dir(e_SYSTEM) && !is_writable(e_SYSTEM))
 		{
 			$message = str_replace("[x]", e_SYSTEM, ADLAN_193);
-			$mes->addWarning($message);
+			$mes->addWarning($message);			
 		}
 
 		$files = e107::getFile()->scandir(e_IMAGE."avatars",'jpg,gif,png,jpeg');
@@ -521,7 +472,7 @@ TMPO;
 
 
 	
-	
+	/*
 	private function checkHtmlarea()
 	{
 		$mes = e107::getMessage();
@@ -530,15 +481,14 @@ TMPO;
 			$mes->addWarning(e_HANDLER."htmlarea/<br />".e_ADMIN_ABS."htmlarea/");
 		}	
 	}		
-	
+	*/
 
 
 	private function checkIncompatiblePlugins()
 	{
 	    if($this->upgradeRequiredFirst)
 	    {
-	        eHelper::clearSystemNotification('checkIncompatiblePlugins');
-	        return;
+	        return null;
         }
 
 		$mes = e107::getMessage();
@@ -555,21 +505,15 @@ TMPO;
 
 			if(!empty($installedPlugs[$folder]) && ($version == $installedPlugs[$folder] || $version === '*'))
 			{
-				$url = e_ADMIN."plugin.php?searchquery=$folder&filter_options=&mode=installed&action=list&etrigger_filter=etrigger_filter";
-				$inCompatText .= "<li><a title='".LAN_VIEW."' href='".$url."'>".$folder." v".$installedPlugs[$folder]."</a></li>";
+				$inCompatText .= "<li><a title='".LAN_UNINSTALL."' href='".e_ADMIN."plugin.php?mode=installed&action=uninstall&path=".$folder."'>".$folder." v".$installedPlugs[$folder]."</a></li>";
 			}	
 		}
 		
 		if($inCompatText)
 		{
 			$text = "<ul>".$inCompatText."</ul>";
-			eHelper::addSystemNotification('checkIncompatiblePlugins', ADLAN_189."&nbsp;<br /><br />".$text);
-		//	$mes->addWarning(ADLAN_189."&nbsp;<br /><br />".$text);
-		}
-		else
-		{
-			 eHelper::clearSystemNotification('checkIncompatiblePlugins');
-		}
+			$mes->addWarning(ADLAN_189."&nbsp;<br /><br />".$text);
+		}	
 		
 	}
 
@@ -578,7 +522,7 @@ TMPO;
 	{
 	    if($this->upgradeRequiredFirst)
 	    {
-	        return;
+	        return null;
         }
 
 		$us = e107::getUserSession();
@@ -588,12 +532,8 @@ TMPO;
 		{
 			$message = LAN_PASSWORD_WARNING;
 			$srch = array('[',']');
-			$repl = array("<a class='text-info' href='".e_ADMIN."prefs.php#nav-core-prefs-security'>","</a>");
-			eHelper::addSystemNotification('checkPasswordEncryption', str_replace($srch,$repl,$message));
-		}
-		else
-		{
-			eHelper::clearSystemNotification('checkPasswordEncryption');
+			$repl = array("<a class='alert-link' href='".e_ADMIN."prefs.php#nav-core-prefs-security'>","</a>");
+			$mes->addWarning(str_replace($srch,$repl,$message));
 		}
 
 	}
@@ -605,11 +545,7 @@ TMPO;
 
 		if($pref['developer'] && (strpos(e_SELF,'localhost') === false) && (strpos(e_SELF,'127.0.0.1') === false))
 		{
-			eHelper::addSystemNotification('checkDeveloperMode', $tp->toHTML(LAN_DEVELOPERMODE_CHECK, true));
-		}
-		else
-		{
-			eHelper::clearSystemNotification('checkDeveloperMode');
+			e107::getMessage()->addWarning($tp->toHTML(LAN_DEVELOPERMODE_CHECK, true));
 		}
 	}
 
@@ -617,27 +553,7 @@ TMPO;
 
 	private function checkDependencies()
 	{
-		if(PHP_MAJOR_VERSION < 8)
-		{
-			$lanFallback = 'Your website is currently running an [outdated version of PHP], which may pose a security risk. If your plugins will allow it, we recommend upgrading to [x] to ensure that your website is secure and up-to-date.';
-			$lan = defset('LAN_PHP_OUTDATED', $lanFallback);
-			$url = e_ADMIN.'phpinfo.php';
 
-			$lan = e107::getParser()->lanVars($lan, 'PHP 8.2');
-
-			$srch = array('[',']');
-			$repl = [
-				"<a class='text-info' href='$url'>",
-				"</a>"
-			];
-
-			$lan = str_replace($srch, $repl, $lan);
-			eHelper::addSystemNotification('checkDependencies', $lan);
-		}
-		else
-		{
-			eHelper::clearSystemNotification('checkDependencies');
-		}
 
 	}
 
@@ -720,12 +636,8 @@ TMPO;
 		{
 			if(rename(e_BASE."e107.htaccess", e_BASE.".htaccess")===false)
 			{
-				eHelper::addSystemNotification('checkHtaccess', "Please rename your <b>e107.htaccess</b> file to <b>.htaccess</b>");
+				e107::getMessage()->addWarning("Please rename your <b>e107.htaccess</b> file to <b>.htaccess</b>");
 			}
-		}
-		else
-		{
-			eHelper::clearSystemNotification('checkDependencies');
 		}
 	}
 
@@ -897,7 +809,7 @@ function admin_info()
 function status_request()
 {
 	global $pref;
-	if ($pref['adminstyle'] == 'classis' || $pref['adminstyle'] == 'cascade' || $pref['adminstyle'] == 'beginner' || $pref['adminstyle'] == 'tabbed') {
+	if ($pref['adminstyle'] == 'classis'  || $pref['adminstyle'] == 'tabbed') {
 		return TRUE;
 	} else {
 		return FALSE;
@@ -907,22 +819,12 @@ function status_request()
 
 function latest_request()
 {
-	global $pref;
-	if ($pref['adminstyle'] == 'classis' || $pref['adminstyle'] == 'cascade' || $pref['adminstyle'] == 'beginner' || $pref['adminstyle'] == 'tabbed') {
-		return TRUE;
-	} else {
-		return FALSE;
-	}
+	return FALSE;
 }
 
 function log_request()
 {
-	global $pref;
-	if ($pref['adminstyle'] == 'classis' || $pref['adminstyle'] == 'cascade'|| $pref['adminstyle'] == 'beginner' || $pref['adminstyle'] == 'tabbed') {
-		return TRUE;
-	} else {
-		return FALSE;
-	}
+	return FALSE;
 }
 
 // getPlugLinks() - moved to sitelinks_class.php : pluginLinks();
@@ -930,5 +832,3 @@ function log_request()
 
 
 require_once("footer.php");
-
-
