@@ -152,21 +152,35 @@ class user_mailout
 
 		}
 
-		if (vartrue($selectVals['extended_1_name']) && vartrue($selectVals['extended_1_value']) && preg_match('/^[A-Za-z0-9_]+$/', (string) $selectVals['extended_1_name']))
+		if (vartrue($selectVals['extended_1_name']) && vartrue($selectVals['extended_1_value']))
 		{
-			$where[] = '`'.$selectVals['extended_1_name']."` = '".$sql->escape($selectVals['extended_1_value'])."' ";
-			$incExtended[] = $selectVals['extended_1_name'];
+			// Column name comes from POST; validate as an identifier (toDB does not
+			// strip backticks) before interpolating it inside backtick quotes.
+			$col = $sql->quoteIdentifier($selectVals['extended_1_name']);
+			if($col !== false)
+			{
+				$where[] = $col." = '".$selectVals['extended_1_value']."' ";
+				$incExtended[] = $selectVals['extended_1_name'];
+			}
 		}
 
-		if (vartrue($selectVals['extended_2_name']) && vartrue($selectVals['extended_2_value']) && preg_match('/^[A-Za-z0-9_]+$/', (string) $selectVals['extended_2_name']))
+		if (vartrue($selectVals['extended_2_name']) && vartrue($selectVals['extended_2_value']))
 		{
-			$where[] = "ue.`".$selectVals['extended_2_name']."` = '".$sql->escape($selectVals['extended_2_value'])."' ";
-			$incExtended[] = $selectVals['extended_2_name'];
+			$col = $sql->quoteIdentifier($selectVals['extended_2_name']);
+			if($col !== false)
+			{
+				$where[] = "ue.".$col." = '".$selectVals['extended_2_value']."' ";
+				$incExtended[] = $selectVals['extended_2_name'];
+			}
 		}
 
-		if (vartrue($selectVals['user_search_name']) && vartrue($selectVals['user_search_value']) && preg_match('/^[A-Za-z0-9_]+$/', (string) $selectVals['user_search_name']))
+		if (vartrue($selectVals['user_search_name']) && vartrue($selectVals['user_search_value']))
 		{
-			$where[]= "u.`".$selectVals['user_search_name']."` LIKE '%".$sql->escape($selectVals['user_search_value'])."%' ";
+			// Restrict the search column to the fixed set offered by the UI.
+			if(in_array($selectVals['user_search_name'], array('user_name','user_loginname','user_email'), true))
+			{
+				$where[]= "u.`".$selectVals['user_search_name']."` LIKE '%".$selectVals['user_search_value']."%' ";
+			}
 		}
 
 		if (!empty($selectVals['last_visit_match']) && !empty($selectVals['last_visit_date']))

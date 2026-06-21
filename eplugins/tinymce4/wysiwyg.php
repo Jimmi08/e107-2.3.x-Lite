@@ -24,7 +24,7 @@ tinymce.init({
 	"language": "en",
 	"menubar": "edit view format insert table tools",
 	"toolbar1": "undo redo | styleselect | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | e107-image e107-video e107-glyph | preview",
-	"external_plugins": {"e107":"/e107_plugins/tinymce4/plugins/e107/plugin.js","example":"/e107_plugins/tinymce4/plugins/example/plugin.js"},
+	"external_plugins": {"e107":"/eplugins/tinymce4/plugins/e107/plugin.js","example":"/eplugins/tinymce4/plugins/example/plugin.js"},
 	"image_advtab": true,
 	"extended_valid_elements": "i[*], object[*],embed[*],bbcode[*]",
 	"convert_fonts_to_spans": false,
