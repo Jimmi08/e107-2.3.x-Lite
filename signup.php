@@ -101,6 +101,7 @@ else
 	$SIGNUP_EXTENDED_CAT = '';
 
 	$tmplPath = e107::coreTemplatePath('signup');
+	e107::predefineLegacyLans($tmplPath); // #5653: pre-define any missing legacy LAN_* before require.
 	require_once($tmplPath); //correct way to load a core template.
 	if(empty($SIGNUP_BODY) && empty($SIGNUP_BEGIN)) // fall-back in case the template has been loaded before.
 	{
@@ -386,7 +387,7 @@ if (isset($_POST['register']) && intval($pref['user_reg']) === 1)
 			exit;
 		}
 
-		if ($_POST['email'] && $sql->select("user", "*", "user_email='".$sql->escape($_POST['email'])."' AND user_ban='".USER_BANNED."'"))
+		if ($_POST['email'] && $sql->createQueryBuilder()->select('*')->from('user')->where('user_email', $_POST['email'])->where('user_ban', USER_BANNED)->execute())
 		{
 			exit;
 		}
@@ -579,7 +580,7 @@ if (isset($_POST['register']) && intval($pref['user_reg']) === 1)
 			if ($init_class = $userMethods->userClassUpdate($row, 'userpartial'))
 			{
 				$allData['data']['user_class'] = $init_class;
-				$user_class_update = $sql->update("user", "user_class = '".$sql->escape($allData['data']['user_class'])."' WHERE user_name='".$sql->escape($allData['data']['user_name'])."' LIMIT 1");
+				$user_class_update = $sql->createQueryBuilder()->update('user')->set('user_class', $allData['data']['user_class'])->where('user_name', $allData['data']['user_name'])->limit(1)->execute();
 				
 				if($user_class_update === FALSE)
 				{

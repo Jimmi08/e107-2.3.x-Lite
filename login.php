@@ -12,6 +12,7 @@
 
 require_once("class2.php");
 
+
 // LITE MODIFICATION: upstream's single dense if() guard rewritten
 // into four sequential cases (Refs #78) for clarity AND to fix the
 // user_reg=0 + landing=login infinite redirect loop. Upstream

@@ -157,12 +157,12 @@ if(!empty($CLASS2_INCLUDE))
 
 if(empty($HANDLERS_DIRECTORY))
 {
-	$HANDLERS_DIRECTORY = !empty($config['paths']['handlers']) ? $config['paths']['handlers'] :  'e107_handlers/';
+	$HANDLERS_DIRECTORY = !empty($config['paths']['handlers']) ? $config['paths']['handlers'] :  'ehandlers/';
 }
 
 if(empty($PLUGINS_DIRECTORY))
 {
-	$PLUGINS_DIRECTORY = !empty($config['paths']['plugins']) ? $config['paths']['plugins'] : 'e107_plugins/';
+	$PLUGINS_DIRECTORY = !empty($config['paths']['plugins']) ? $config['paths']['plugins'] : 'eplugins/';
 }
 
 //define("MPREFIX", $mySQLprefix); moved to $e107->set_constants()
@@ -176,10 +176,10 @@ if(empty($PLUGINS_DIRECTORY))
 $e107_installed = !empty($mySQLdefaultdb) || (is_array($config) && !empty($config['database']['db']));
 $e107_install_pending = (is_array($config) && !empty($config['other']['install_pending'])) || !empty($E107_CONFIG['install_pending']);
 
-if ($e107_install_pending || !$e107_installed)
+if($e107_install_pending || !$e107_installed)
 {
-	header('Location: install.php');
-	exit();
+  header('Location: install.php');
+  exit();
 }
 
 // Upgrade Compatibility - Disable CL_WIDGETS before e107_class.php is loaded.
@@ -211,6 +211,7 @@ if(empty($config['paths'])) // old e107_config.php format.
 	    }
 	}
 	unset($name);  //LITE MODIFICATION too general variable name, later conflict
+
 	$legacy_sql_info = compact('mySQLserver', 'mySQLuser', 'mySQLpassword', 'mySQLdefaultdb', 'mySQLprefix');
 	if(isset($mySQLport))
 	{
@@ -222,6 +223,7 @@ if(empty($config['paths'])) // old e107_config.php format.
 		}, array_keys($legacy_sql_info)),
         $legacy_sql_info
 	);
+
 	$sql_info['db'] = $sql_info['defaultdb'];
 }
 else // New e107_config.php format. v2.4+
@@ -491,13 +493,13 @@ if(!empty($pref['redirectsiteurl']) && !empty($pref['siteurl'])) {
 			exit();
 		}
 	}
-	elseif (deftrue('e_DOMAIN'))
+    elseif(deftrue('e_DOMAIN'))
 	{
 		$location = e107::getRedirect()->host($_SERVER, $pref['siteurl'], ADMINDIR);
 
-		if ($location)
+		if($location)
 		{
-			if (defined('e_DEBUG') && e_DEBUG === true)
+			if(defined('e_DEBUG') && e_DEBUG === true)
 			{
 				echo "DEBUG INFO: site-redirect preference enabled.<br />Redirecting to: <a href='" . $location . "'>" . $location . "</a>";
 				echo '<br />e_DOMAIN: ' . e_DOMAIN;
@@ -510,6 +512,7 @@ if(!empty($pref['redirectsiteurl']) && !empty($pref['siteurl'])) {
 
 			exit();
 		}
+
 	}
 }
 
@@ -521,7 +524,7 @@ if(!empty($pref['redirectsiteurl']) && !empty($pref['siteurl'])) {
 // - Language detection (because of session.cookie_domain)
 // to avoid multi-language 'access-denied' issues.
 //session_start(); see e107::getSession() above
-if (!isset($_E107['no_session']) && !isset($_E107['no_lan']))
+if(!isset($_E107['no_session']) && !isset($_E107['no_lan']))
 {
 	$dbg->logTime('Load Session Handler');
 	e107::getSession(); //init core _SESSION - actually here for reference only, it's done by language handler set() method
@@ -534,11 +537,13 @@ else
 	define('e_LANGUAGE', 'English');
 }
 
-if (!empty($pref['multilanguage']) && (e_LANGUAGE !== $pref['sitelanguage']))
+if(!empty($pref['multilanguage']) && (e_LANGUAGE !== $pref['sitelanguage']))
 {
 	$sql->mySQLlanguage  = e_LANGUAGE;
 	$sql2->mySQLlanguage = e_LANGUAGE;
 }
+
+
 
 
 // v1 Custom language File Path.
@@ -574,14 +579,15 @@ if(!isset($_E107['no_lan']))
 
 	$dbg->logTime('Include Global Plugin Language Files');
 
-	if (isset($pref['lan_global_list']))
+	if(isset($pref['lan_global_list']))
 	{
-		foreach ($pref['lan_global_list'] as $path)
+		foreach($pref['lan_global_list'] as $path)
 		{
-			if (e107::plugLan($path, 'global', true) === false)
+			if(e107::plugLan($path, 'global', true) === false)
 			{
 				e107::plugLan($path, 'global');
 			}
+
 		}
 	}
 }
@@ -667,9 +673,7 @@ define('SITETAG', $tp->toHTML($pref['sitetag'], false, 'emotes_off,defs'));
 
 define('SITEADMIN', $pref['siteadmin']);
 define('SITEADMINEMAIL', $pref['siteadminemail']);
-
 define('SITEDISCLAIMER', str_replace('YYYY', date('Y'), $tp->toHTML($pref['sitedisclaimer'], '', 'emotes_off,defs')));
-
 define('SITECONTACTINFO', (!empty($pref['sitecontactinfo']) ? $tp->toHTML($pref['sitecontactinfo'], true, 'emotes_off,defs') : ''));
 define('SITEEMAIL', vartrue($pref['replyto_email'],$pref['siteadminemail']));
 define('USER_REGISTRATION', vartrue($pref['user_reg'],false)); // User Registration System Active or Not.
@@ -849,7 +853,7 @@ if (($_SERVER['QUERY_STRING'] === 'logout'))
 	// TODO - should be done inside online handler, more core areas need it (session handler for example)
 	if (isset($pref['track_online']) && $pref['track_online'])
 	{
-		$sql->update('online', "online_user_id = 0, online_pagecount=online_pagecount+1 WHERE online_user_id = '".$sql->escape($udata)."'");
+		$sql->createQueryBuilder()->update('online')->set('online_user_id', 0)->setExpression('online_pagecount', 'online_pagecount + 1')->where('online_user_id', $udata)->execute();
 	}
 	
 	// earlier event trigger with user data still available 
@@ -1139,7 +1143,7 @@ else
 	define('e_REFERER_SELF', false);
 }
 
-if (deftrue('USER') && !e107::isCli())
+if(deftrue('USER') && !e107::isCli())
 {
 	if (check_class(varset($pref['user_audit_class']))) // Need to note in user audit trail
 	{
@@ -1295,7 +1299,7 @@ function check_class($var, $userclass = null, $uid = 0)
  * @param string|null     $path The path to the file requesting the permission check.
  *                              This is only used when checking plugin admin permissions.
  *                              Exclude or use {@link null} to use the current page, which auto-detects the plugin path.
- *                              Example: `http://localhost/e107v2/e107_plugins/gallery/admin_config.php` along with the
+ *                              Example: `http://localhost/e107v2/eplugins/gallery/admin_config.php` along with the
  *                              first argument set to `P` will check the plugin admin permissions for plugin `gallery`.
  * @return bool true if the user has the requested admin permissions, false otherwise.
  * @see class2Test::testGetPerms() for examples.
@@ -1614,6 +1618,8 @@ function init_session()
 	}
 
 	e107::getDebug()->logTime('[init_session: Constants]');
+
+
 	define('ADMIN', $user->isAdmin());
 	define('ADMINID', $user->getAdminId());
 	define('ADMINNAME', $user->getAdminName());
@@ -2111,7 +2117,7 @@ class error_handler
 			}
 			break;
 			case E_USER_ERROR:
-			if ($this->debug == true)
+			if ($this->debug === true)
 			{
 				$error['short'] = "&nbsp;&nbsp;&nbsp;&nbsp;Internal Error Message: {$message}, Line <mark>{$line}</mark> of {$file}<br />\n";
 				$trace = debug_backtrace();
@@ -2370,7 +2376,7 @@ class e_http_header
 				{
 				    date_default_timezone_set('UTC');
 				}
-				$time = time() + (int) e107::getPref('site_page_expires');
+				$time = time()+ (int) e107::getPref('site_page_expires');
 				$this->setHeader('Expires: '.gmdate("D, d M Y H:i:s", $time).' GMT', true);
 			}
 		}
