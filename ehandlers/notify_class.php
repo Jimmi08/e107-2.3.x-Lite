@@ -489,7 +489,8 @@ class notify
 					";
 
 		$shortcodes = array(
-			'NEWS_URL'      => e107::getUrl()->create('news/view/item', $data,'full=1&encode=0'),
+			// LITE MODIFICATION (#84): news SEF via e107::url() — email context: decode &amp; so the href is a plain URL (encode=0 has no e107::url() equivalent)
+			'NEWS_URL'      => html_entity_decode(e107::url('news', 'item', $data, array('mode' => 'full')), ENT_QUOTES),
 			'NEWS_TITLE'    => $tp->toHTML($data['news_title']),
 			'NEWS_SUMMARY'  => $tp->toEmail($data['news_summary']),
 			'NEWS_AUTHOR'   => $tp->toHTML($author)
