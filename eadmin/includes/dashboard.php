@@ -25,7 +25,9 @@
 	//define('FLEXPANEL_ENABLED', $flepanelEnabled);
 	//change: allow use flex always, not depends on personalization access
 	define('FLEXPANEL_ENABLED', true);
-	//define('ADMINFEEDMORE', 'https://e107.org/blog');
+	//LITE-SKIP Lite removes the e107.org admin RSS feed entirely (no phone-home).
+	//LITE-SKIP ADMINFEEDMORE dropped. See Lite #88.
+	//LITE-SKIP define('ADMINFEEDMORE', 'https://e107.org/blog');
 
 	// Save rearranged menus to user.
 	if (e_AJAX_REQUEST) {
@@ -244,31 +246,33 @@
 		 */
 		public function core_infopanel_news($options = array())
 		{
-			// $ns = e107::getRender();
-
-			// $dashboardUniqueId 	= varset($options['uniqueId'], time());
-			// $dashboardStyle		= varset($options['style'], 'flexbox');
-
-			// $newsTabs = array();
-			// $newsTabs['coreFeed'] = array('caption' => LAN_GENERAL, 'text' => "<div id='e-adminfeed' style='min-height:300px'></div><div class='right'><a rel='external' href='" . ADMINFEEDMORE . "'>" . LAN_MORE . "</a></div>");
-			// $newsTabs['pluginFeed'] = array('caption' => LAN_PLUGIN, 'text' => "<div id='e-adminfeed-plugin'></div>");
-			// $newsTabs['themeFeed'] = array('caption' => LAN_THEMES, 'text' => "<div id='e-adminfeed-theme'></div>");
-
-			// $code = "
-			// jQuery(function($){
-			// 	$('#e-adminfeed').load('" . e_ADMIN . "admin.php?mode=core&type=feed');
-			// 	$('#e-adminfeed-plugin').load('" . e_ADMIN . "admin.php?mode=addons&type=plugin');
-			// 	$('#e-adminfeed-theme').load('" . e_ADMIN . "admin.php?mode=addons&type=theme');	
-			// });
-			// ";
-			// e107::js('inline', $code, 'jquery');
-
-			// $ns->setStyle($dashboardStyle);
-			// $ns->setUniqueId($dashboardUniqueId);
-
-			// $coreInfoPanelNews = $ns->tablerender(LAN_LATEST_e107_NEWS, e107::getForm()->tabs($newsTabs, array('active' => 'coreFeed')), $dashboardUniqueId, true);
-
-			// return $coreInfoPanelNews;
+			//LITE-SKIP Lite removes the e107.org admin RSS feed entirely (no phone-home).
+			//LITE-SKIP e-adminfeed panel + ADMINFEEDMORE dropped. See Lite #88.
+			//LITE-SKIP $ns = e107::getRender();
+			//LITE-SKIP
+			//LITE-SKIP $dashboardUniqueId 	= varset($options['uniqueId'], time());
+			//LITE-SKIP $dashboardStyle		= varset($options['style'], 'flexbox');
+			//LITE-SKIP
+			//LITE-SKIP $newsTabs = array();
+			//LITE-SKIP $newsTabs['coreFeed'] = array('caption' => LAN_GENERAL, 'text' => "<div id='e-adminfeed' style='min-height:300px'></div><div class='right'><a rel='external' href='" . ADMINFEEDMORE . "'>" . LAN_MORE . "</a></div>");
+			//LITE-SKIP $newsTabs['pluginFeed'] = array('caption' => LAN_PLUGIN, 'text' => "<div id='e-adminfeed-plugin'></div>");
+			//LITE-SKIP $newsTabs['themeFeed'] = array('caption' => LAN_THEMES, 'text' => "<div id='e-adminfeed-theme'></div>");
+			//LITE-SKIP
+			//LITE-SKIP $code = "
+			//LITE-SKIP jQuery(function($){
+			//LITE-SKIP 	$('#e-adminfeed').load('" . e_ADMIN . "admin.php?mode=core&type=feed');
+			//LITE-SKIP 	$('#e-adminfeed-plugin').load('" . e_ADMIN . "admin.php?mode=addons&type=plugin');
+			//LITE-SKIP 	$('#e-adminfeed-theme').load('" . e_ADMIN . "admin.php?mode=addons&type=theme');	
+			//LITE-SKIP });
+			//LITE-SKIP ";
+			//LITE-SKIP e107::js('inline', $code, 'jquery');
+			//LITE-SKIP
+			//LITE-SKIP $ns->setStyle($dashboardStyle);
+			//LITE-SKIP $ns->setUniqueId($dashboardUniqueId);
+			//LITE-SKIP
+			//LITE-SKIP $coreInfoPanelNews = $ns->tablerender(LAN_LATEST_e107_NEWS, e107::getForm()->tabs($newsTabs, array('active' => 'coreFeed')), $dashboardUniqueId, true);
+			//LITE-SKIP
+			//LITE-SKIP return $coreInfoPanelNews;
 		}
 
 		/**

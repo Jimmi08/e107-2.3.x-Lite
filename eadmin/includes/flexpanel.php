@@ -219,19 +219,21 @@ class adminstyle_flexpanel extends adminstyle_infopanel
 
 
 		// --------------------- e107 News --------------------------------
-		$newsTabs = array();
-		$newsTabs['coreFeed'] = array('caption' => LAN_GENERAL, 'text' => "<div id='e-adminfeed' style='min-height:300px'></div><div class='right'><a rel='external' href='" . ADMINFEEDMORE . "'>" . LAN_MORE . "</a></div>");
-		$newsTabs['pluginFeed'] = array('caption' => LAN_PLUGIN, 'text' => "<div id='e-adminfeed-plugin'></div>");
-		$newsTabs['themeFeed'] = array('caption' => LAN_THEMES, 'text' => "<div id='e-adminfeed-theme'></div>");
-		$ns->setStyle('flexpanel');
-		$ns->setUniqueId('core-infopanel_news');
-		$coreInfoPanelNews = $ns->tablerender(LAN_LATEST_e107_NEWS, e107::getForm()->tabs($newsTabs, array('active' => 'coreFeed')), "core-infopanel_news", true);
-		$info = $this->getMenuPosition('core-infopanel_news');
-		if (!isset($panels[$info['area']][$info['weight']]))
-		{
-			$panels[$info['area']][$info['weight']] = '';
-		}
-		$panels[$info['area']][$info['weight']] .= $coreInfoPanelNews;
+		//LITE-SKIP Lite removes the e107.org admin RSS feed entirely (no phone-home).
+		//LITE-SKIP e-adminfeed panel + ADMINFEEDMORE dropped. See Lite #88.
+		//LITE-SKIP $newsTabs = array();
+		//LITE-SKIP $newsTabs['coreFeed'] = array('caption' => LAN_GENERAL, 'text' => "<div id='e-adminfeed' style='min-height:300px'></div><div class='right'><a rel='external' href='" . ADMINFEEDMORE . "'>" . LAN_MORE . "</a></div>");
+		//LITE-SKIP $newsTabs['pluginFeed'] = array('caption' => LAN_PLUGIN, 'text' => "<div id='e-adminfeed-plugin'></div>");
+		//LITE-SKIP $newsTabs['themeFeed'] = array('caption' => LAN_THEMES, 'text' => "<div id='e-adminfeed-theme'></div>");
+		//LITE-SKIP $ns->setStyle('flexpanel');
+		//LITE-SKIP $ns->setUniqueId('core-infopanel_news');
+		//LITE-SKIP $coreInfoPanelNews = $ns->tablerender(LAN_LATEST_e107_NEWS, e107::getForm()->tabs($newsTabs, array('active' => 'coreFeed')), "core-infopanel_news", true);
+		//LITE-SKIP $info = $this->getMenuPosition('core-infopanel_news');
+		//LITE-SKIP if (!isset($panels[$info['area']][$info['weight']]))
+		//LITE-SKIP {
+			//LITE-SKIP $panels[$info['area']][$info['weight']] = '';
+		//LITE-SKIP }
+		//LITE-SKIP $panels[$info['area']][$info['weight']] .= $coreInfoPanelNews;
 
 
 		// --------------------- Website Status ---------------------------
