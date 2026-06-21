@@ -24,7 +24,7 @@ $e_sub_cat = 'plug_manage';
 
 define('PLUGIN_SHOW_REFRESH', FALSE);
 define('PLUGIN_SCAN_INTERVAL', !empty($_SERVER['E_DEV']) ? 0 : 360);
-define("ADMIN_GITSYNC_ICON", e107::getParser()->toGlyph('fa-refresh', array('size'=>'1x', 'fw'=>1)));
+define("ADMIN_GITSYNC_ICON", e107::getParser()->toGlyph('fa-refresh', array('class'=>'admin-ui-option', 'size'=>'2x', 'fw'=>1)));
 
 
 global $user_pref;
@@ -96,9 +96,10 @@ class plugman_adminArea extends e_admin_dispatcher
 
 		'installed/list'		=> array('caption'=> 'EPL_ADLAN_22', 'perm' => 'Z', 'icon'=>'fa-plug-circle-check'),
 		'avail/list'			=> array('caption'=> 'EPL_ADLAN_23', 'perm' => 'Z', 'icon'=>'fa-plug-circle-xmark'),
-	 	'online/list'			=> array('caption'=> EPL_ADLAN_220, 'perm' => 'Z', 'icon'=>'fas-search'),
-		'avail/upload'			=> array('caption'=>EPL_ADLAN_38, 'perm' => '0'),
-	//	'create/build'          =>  array('caption'=>EPL_ADLAN_114, 'perm' => '0', 'icon'=>'fas-toolbox'),
+		// LITE MODIFICATION  NOT NEEDED ON LIVE SITE
+		//'online/grid'			=> array('caption'=> 'EPL_ADLAN_220', 'perm' => 'Z', 'icon'=>'fas-search'),  
+		//'avail/upload'			=> array('caption'=>'EPL_ADLAN_38', 'perm' => '0'),
+		//'create/build'          =>  array('caption'=>'EPL_ADLAN_114', 'perm' => '0', 'icon'=>'fas-toolbox'),
 
 	//	'main/create'		=> array('caption'=> LAN_CREATE, 'perm' => 'P'),
 
@@ -112,6 +113,7 @@ class plugman_adminArea extends e_admin_dispatcher
 	protected $adminMenuAliases = array(
 		'installed/uninstall'	=> 'installed/list',
 		'lans/list'             => 'create/build',
+		//'online/list'           => 'online/grid', LITE MODIFICATION
 	);
 
 	protected $adminMenuIcon = 'e-plugmanager-24';
@@ -130,7 +132,6 @@ class plugman_adminArea extends e_admin_dispatcher
 		if(deftrue('e_DEVELOPER'))
 		{
 			e107::getPlug()->clearCache();
-			$this->adminMenu['create/build'] = array('caption'=>EPL_ADLAN_114, 'perm' => '0', 'icon'=>'fas-toolbox');
 		}
 	}
 
@@ -718,7 +719,7 @@ class plugin_ui extends e_admin_ui
 
 				e107::getLog()->add('PLUGMAN_02', $name);
 				$text .= (isset($eplug_upgrade_done)) ? '<br />'.$eplug_upgrade_done : "<br />".LAN_UPGRADE_SUCCESSFUL;
-				$sql->update('plugin', "plugin_version ='".$sql->escape($eplug_version)."', plugin_addons='".$sql->escape($eplug_addons)."' WHERE plugin_id='".intval($this->id)."' ");
+				$sql->createQueryBuilder()->update('plugin')->set('plugin_version', $eplug_version)->set('plugin_addons', $eplug_addons)->where('plugin_id', (int) $this->id)->execute();
 				$pref['plug_installed'][$plug['plugin_path']] = $eplug_version; 			// Update the version
 
 				e107::getConfig()->setPref($pref);
@@ -823,7 +824,7 @@ class plugin_ui extends e_admin_ui
 					'label'			=> EPL_ADLAN_57,
 					'helpText'		=> EPL_ADLAN_58,
 					'itemList'		=> array(1=>LAN_YES,0=>LAN_NO),
-					'itemDefault' 	=> 0
+					'itemDefault' 	=> 1
 			);
 
 			if ($userclasses)
@@ -833,7 +834,7 @@ class plugin_ui extends e_admin_ui
 					'preview'		=> $userclasses,
 					'helpText'		=> EPL_ADLAN_79,
 					'itemList'		=> array(1=>LAN_YES,0=>LAN_NO),
-					'itemDefault' 	=> 0
+					'itemDefault' 	=> 1
 				);
 			}
 
@@ -867,7 +868,7 @@ class plugin_ui extends e_admin_ui
 					'preview'		=> $iconText,
 					'helpText'		=> EPL_ADLAN_79,
 					'itemList'		=> array(1=>LAN_YES,0=>LAN_NO),
-					'itemDefault' 	=> 0
+					'itemDefault' 	=> 1
 				);
 
 
@@ -1104,6 +1105,7 @@ class plugin_online_ui extends e_admin_ui
 		protected $batchExport     = true;
 		protected $batchCopy		= true;
 
+		protected $grid             = array();
 
 	//	protected $sortField		= 'somefield_order';
 	//	protected $orderStep		= 10;
@@ -1115,7 +1117,7 @@ class plugin_online_ui extends e_admin_ui
 
 		protected $fields 		= array ();
 
-		protected $fieldpref = array('plugin_icon', 'plugin_name', 'plugin_version',  'plugin_description', 'plugin_license', 'plugin_compatible', 'plugin_category','plugin_installflag');
+		protected $fieldpref = array('plugin_icon', 'plugin_name', 'plugin_version',  'plugin_description', 'plugin_license', 'plugin_compatible', 'plugin_date','plugin_author', 'plugin_category','plugin_installflag');
 
 
 	//	protected $preftabs        = array('General', 'Other' );
@@ -1135,42 +1137,6 @@ class plugin_online_ui extends e_admin_ui
 			$this->fields["plugin_license"]['nolist'] = false;
 			$this->fields['plugin_category']['inline'] = false;
 
-			// Render the online-list icon with a dedicated class (drops the
-			// default 'icon' class, so the theme's 32px img.icon rules no
-			// longer apply) and size it via CSS added in init().
-			$this->fields['plugin_icon']['readParms'] = 'class=plugin-icon-lg';
-
-			// Version cell now also carries the release date, so the column
-			// header reflects both (separate Released column removed).
-			$this->fields['plugin_version']['title'] = 'Online Version';
-
-			// Released and Author data now sit under the version / plugin name.
-			// nolist removes the columns from the list AND the column selector,
-			// overriding any saved per-user column preference.
-			$this->fields['plugin_date']['nolist']   = true;
-			$this->fields['plugin_author']['nolist'] = true;
-			$this->fields['plugin_name']['title']    = 'Title / Author';
-
-			// Repurpose the Installed flag column to show the installed version.
-			$this->fields['plugin_installflag']['type']      = 'text';
-			$this->fields['plugin_installflag']['title']     = 'Installed version';
-			$this->fields['plugin_installflag']['readParms'] = '';
-			$this->fields['plugin_installflag']['class']     = 'left';
-			$this->fields['plugin_installflag']['thclass']   = 'left';
-
-			// Place the Installed version column directly after Online Version.
-			$ordered = array();
-			foreach($this->fields as $k => $v)
-			{
-				if($k === 'plugin_installflag') { continue; }
-				$ordered[$k] = $v;
-				if($k === 'plugin_version' && isset($this->fields['plugin_installflag']))
-				{
-					$ordered['plugin_installflag'] = $this->fields['plugin_installflag'];
-				}
-			}
-			$this->fields = $ordered;
-
 			parent:: __construct($request, $response, $params);
 
 		}
@@ -1179,9 +1145,6 @@ class plugin_online_ui extends e_admin_ui
 		public function init()
 		{
 			require_once(e_HANDLER.'e_marketplace.php');
-
-			// Larger icons in the Find Plugins listing.
-			e107::css('inline', 'img.plugin-icon-lg{height:100px;width:auto;max-width:120px;vertical-align:middle}');
 		}
 
 		function pluginCheck($force=false)
@@ -1205,100 +1168,153 @@ class plugin_online_ui extends e_admin_ui
 		// Modal Download.
 		public function downloadPage()
 		{
-			if (empty($_GET['e-token']))
+			if(empty($_GET['e-token']))
 			{
 				echo e107::getMessage()->addError("Invalid Token")->render('default', 'error');
 				return null;
 			}
 
-			$tp  = e107::getParser();
+			$frm = e107::getForm();
 			$mes = e107::getMessage();
+			$tp = e107::getParser();
 
-			$params = array(
-				'organization' => $tp->filter($_GET['organization'], 'str'),
-				'repo'         => $tp->filter($_GET['repo'],         'str'),
-				'branch'       => $tp->filter($_GET['branch'],       'str'),
-				'folder'       => $tp->filter($_GET['folder'],       'str'),
-			);
 
-			if (empty($params['organization']) || empty($params['repo']) || empty($params['branch']) || empty($params['folder']))
-			{
-				echo $mes->addError("Missing required parameters.")->render('default', 'error');
-				return null;
-			}
+			$string =  base64_decode($_GET['src']);
+			parse_str($string, $data);
 
-			// install=0 => download only (re-download / refresh files, no install routine)
-			$doInstall = !(isset($_GET['install']) && (string) $_GET['install'] === '0');
-
-			if (deftrue('e_DEBUG_MARKETPLACE'))
+			if(deftrue('e_DEBUG_MARKETPLACE'))
 			{
 				echo "<b>DEBUG MODE ACTIVE (no downloading)</b><br />";
-				print_a($params);
+				echo '$_GET[src]: ';
+				print_a($_GET);
+
+				echo 'base64 decoded and parsed as $data:';
+				print_a($data);
 				return false;
 			}
 
-			$mes->addSuccess(EPL_ADLAN_94);
+			$pluginFolder = !empty($data['plugin_folder']) ? $tp->filter($data['plugin_folder']) : '';
+			$pluginUrl = !empty($data['plugin_url']) ? $tp->filter($data['plugin_url']) : '';
+			$pluginID = !empty($data['plugin_id']) ? $tp->filter($data['plugin_id']) : '';
+			$pluginMode = !empty($data['plugin_mode']) ? $tp->filter($data['plugin_mode']) : '';
 
-			$result = e107::getFile()->unzipGithubArchive('plugin', e_BASE, $params);
-
-			if ($result === false)
+			if(!empty($data['plugin_price']))
 			{
-				echo $mes->addError(EPL_ADLAN_95)->render('default', 'error');
-				return null;
+				e107::getRedirect()->go($pluginUrl);
+				return true;
 			}
 
-			if (!empty($result['success']))
+			$mp = $this->getMarketplace();
+		//	$mp->generateAuthKey($e107SiteUsername, $e107SiteUserpass);
+
+
+
+			// Server flush useless. It's ajax ready state 4, we can't flush (sadly) before that (at least not for all browsers)
+		    $mes->addSuccess(EPL_ADLAN_94);
+
+			if($mp->download($pluginID, $pluginMode, 'plugin'))
 			{
-				$this->pluginCheck(true); // rescan plugin directory
+				$this -> pluginCheck(true); // rescan the plugin directory
+				$text = e107::getPlugin()->install($pluginFolder);
 
-				if ($doInstall)
-				{
-					$text = e107::getPlugin()->install($params['folder']);
-					$mes->addInfo($text);
 
-					// Show upgrade button if local version is behind plugin.xml version
-					$upgradable = e107::getPlug()->getUpgradableList();
-					if (!empty($upgradable[$params['folder']]))
-					{
-						$upgradeUrl = e_ADMIN . "plugin.php?mode=installed&action=upgrade&path=" . $params['folder'] . "&e-token=" . defset('e_TOKEN');
-						$mes->addSuccess("<a target='_top' href='" . $upgradeUrl . "' class='btn btn-primary'>" . LAN_UPDATE . "</a>");
-					}
-				}
-				else
+
+				$mes->addInfo($text);
+
+				$upgradable =  e107::getPlug()->getUpgradableList();
+				if(!empty($upgradable[$pluginFolder]))
 				{
-					$mes->addSuccess('Files downloaded. Plugin was not installed - use Install to enable it.');
+					$mes->addSuccess("<a target='_top' href='".e_ADMIN."plugin.php?mode=installed&action=upgrade&id=".$pluginFolder."&e-token=".defset('e_TOKEN')."' class='btn btn-primary'>".LAN_UPDATE."</a>");
 				}
 
 				echo $mes->render('default', 'success');
 			}
 			else
 			{
+				// Unable to continue
 				echo $mes->addError(EPL_ADLAN_95)->render('default', 'error');
-			}
-
-			if (!empty($result['error']))
-			{
-				echo $mes->setTitle('Ignored', E_MESSAGE_WARNING)
-						->addWarning(print_a($result['error'], true))
-						->render('default', 'warning');
 			}
 
 			echo $mes->render('default', 'debug');
 			return null;
+
+
+
 		}
 
-		public function ListObserver()
-		{
-			// Keep table descriptions readable.
-			$this->fields['plugin_description']['readParms'] = 'expand=1&truncate=200&bb=1';
-			$this->setPlugData();
-			parent::ListObserver();
-		}
+        public function ListObserver()
+        {
+            $this->setupGridData();
+             $this->setPlugData();
+            parent::ListObserver();
+
+        }
 
 		public function ListAjaxObserver()
 		{
 			parent::ListAjaxObserver();
 			$this->setPlugData();
+		}
+
+		public function GridAjaxObserver()
+		{
+			$this->setupGridData();
+			$this->setPlugData();
+
+			parent::GridAjaxObserver();
+		}
+
+
+		public function GridObserver()
+		{
+			$this->setupGridData();
+			$this->setPlugData();
+
+
+			parent::GridObserver();
+
+
+		}
+
+		private function setupGridData()
+		{
+
+			$this->fields['plugin_description']['readParms'] = 'expand=0&truncate=1800&bb=1';
+			$this->fields['plugin_license']['class'] = 'right';
+
+			$this->grid = array(
+				'price'    => 'plugin_license',
+				'title'    => 'plugin_name',
+				'image'    => 'plugin_icon',
+				'date'      => 'plugin_date',
+				'body'     => 'plugin_description',
+				'version'   => 'plugin_version',
+				'class'    => 'col-md-6 col-lg-4',
+				'author'    => 'plugin_author',
+				'perPage'  => 6,
+				'carousel' => true
+			);
+
+
+			$this->grid['template'] = '
+
+				 <div class="panel panel-primary" style="height:190px" >
+				 	<table class="table" style="height:180px" >
+				 	<tr>
+				 	<td style="width:25%">
+					<div class="text-center" style="height:90px;">{IMAGE}
+					</div>
+					</td>
+					<td><h4>{TITLE} <small> v{VERSION} {PRICE}</small></h4>
+					<div style="height:100px; overflow:hidden">{BODY}</div>
+					<div><small class="text-muted"><i class="fa fa-user"></i> {AUTHOR} <i>{DATE}</i></small> <span class="pull-right">&nbsp; {OPTIONS}</span></div>
+					</td></tr>
+					</table>
+					
+				</div>';
+
+			$this->perPage = 180;
+
 		}
 
 
@@ -1441,10 +1457,10 @@ class plugin_online_ui extends e_admin_ui
 
 
 		// do the request, retrieve and parse data
-		$xdata = $mp->getRegistryList('plugin');
-
-		// Installed versions (folder => version) for the Installed version column.
-		$installedList = e107::getPlug()->getInstalled();
+		$xdata = $mp->call('getList', array(
+			'type'   => 'plugin',
+			'params' => array('limit' => $this->perPage, 'search' => $srch, 'from' => $from, 'cat'=>$cat)
+		));
 
 		$total = (int) $xdata['params']['count'];
 
@@ -1467,34 +1483,11 @@ class plugin_online_ui extends e_admin_ui
 			$featured = ($row['featured'] == 1) ? " <span class='label label-info'>" . EPL_ADLAN_91 . "</span>" : '';
 			$price = (!empty($row['price'])) ? "<span class='label label-primary'>" . $row['price'] . " " . $row['currency'] . "</span>" : "<span class='label label-success'>" . EPL_ADLAN_93 . "</span>";
 
-			// Version cell shows the repo (plugin.xml) version with the release
-			// date on a small second line (the separate Released column was removed).
-			$verDisplay = htmlspecialchars((string) $row['version'], ENT_QUOTES, 'utf-8');
-			if(!empty($row['date']))
-			{
-				// toDate('relative') already returns safe e107 livestamp markup
-				// (<span data-livestamp=...>), so do NOT escape it.
-				$verDisplay .= "<br><small class='text-muted'>" . $tp->toDate(strtotime($row['date']), 'relative') . "</small>";
-			}
-
-			$nameDisplay = htmlspecialchars(stripslashes((string) $row['name']), ENT_QUOTES, 'utf-8');
-			$author      = trim((string) vartrue($row['author']));
-			if($author !== '')
-			{
-				$nameDisplay .= "<br><small class='text-muted'>" . htmlspecialchars($author, ENT_QUOTES, 'utf-8') . "</small>";
-			}
-
 			$node = array(
-				'plugin_id'           => $row['folder'],                    // folder used as unique ID
-				'plugin_mode'         => $row['params']['mode'],            // 'github'
-				'plugin_organization' => $row['params']['organization'],
-				'plugin_repo'         => $row['params']['repo'],
-				'plugin_branch'       => $row['params']['branch'],
+				'plugin_id'          => $row['params']['id'],
+				'plugin_mode'        => $row['params']['mode'],
 				'plugin_icon'        => vartrue($row['icon'], e_IMAGE."logo_template.png"),
-				// Defense-in-depth: escape untrusted remote text on output, even though
-				// e_marketplace already returns these as plain text. The generic 'text'
-				// renderer emits the value into the HTML body unescaped.
-				'plugin_name'        => $nameDisplay,
+				'plugin_name'        => stripslashes($row['name']),
 				'plugin_description' => $this->truncateSentence(vartrue($row['description'])),
 				'plugin_featured'    => $featured,
 				'plugin_sef'         => '',
@@ -1502,8 +1495,8 @@ class plugin_online_ui extends e_admin_ui
 				'plugin_path'        => $row['folder'],
 				'plugin_date'        => $tp->toDate(strtotime($row['date']), 'relative'),
 				'plugin_category'    => vartrue($row['category'], 'n/a'),
-				'plugin_author'      => htmlspecialchars((string) vartrue($row['author']), ENT_QUOTES, 'utf-8'),
-				'plugin_version'     => $verDisplay,
+				'plugin_author'      => vartrue($row['author']),
+				'plugin_version'     => $row['version'],
 
 				'plugin_compatible' => $row['compatibility'], // $badge,
 
@@ -1512,9 +1505,7 @@ class plugin_online_ui extends e_admin_ui
 				'plugin_notes'       => '',
 				'plugin_price'       => $row['price'],
 				'plugin_license'     => $price,
-				'plugin_installflag' => (isset($installedList[$row['folder']]) && $installedList[$row['folder']] !== '')
-					? htmlspecialchars((string) $installedList[$row['folder']], ENT_QUOTES, 'utf-8')
-					: "<small class='text-muted'>&mdash;</small>",
+				'plugin_installflag' => e107::isInstalled($row['folder']),
 				'options'       => $row,
 			);
 
@@ -1838,130 +1829,67 @@ class plugin_form_online_ui extends e_admin_form_ui
 
 	function options($bla, $data)
 	{
-		$tp     = e107::getParser();
-		$folder = isset($data['folder'])         ? $data['folder']         : '';
-		$params = isset($data['params'])         ? $data['params']         : array();
-		$org    = isset($params['organization']) ? $params['organization'] : '';
-		$repo   = isset($params['repo'])         ? $params['repo']         : '';
-		$branch = isset($params['branch'])       ? $params['branch']       : 'main';
+		$action = $this->getController()->getAction();
 
-		// Upgrade available? Online (repo) version newer than installed version.
-		$installedList = e107::getPlug()->getInstalled();
-		$instVer   = isset($installedList[$folder]) ? (string) $installedList[$folder] : '';
-		$onlineVer = (string) (isset($data['version']) ? $data['version'] : '');
-		$upgrade   = ($instVer !== '' && $onlineVer !== '' && version_compare($instVer, $onlineVer, '<'));
-
-		// Info buttons (GitHub repo + info URL) - ALWAYS shown, incl. installed.
-		$infoButtons = '';
-
-		if(!empty($org) && !empty($repo))
+		if(e107::isInstalled($data['folder']))
 		{
-			$repoUrl = 'https://github.com/' . rawurlencode($org)
-				. '/' . rawurlencode($repo)
-				. '/tree/' . rawurlencode($branch);
+			if($action === 'grid')
+			{
+				return "<button class='btn btn-sm btn-default btn-secondary' disabled>".LAN_INSTALLED."</button>";
+			}
 
-			$infoButtons .= ' <a class="btn btn-sm btn-default btn-secondary" '
-				. 'href="'.$tp->toAttribute($repoUrl).'" target="_blank" rel="noopener" '
-				. 'title="View repository on GitHub">'
-				. $tp->toGlyph('fa-github').'</a>';
+			return '&nbsp; <span class="label label-default">'.LAN_INSTALLED."</span>";
+			return null;
 		}
 
-		// Last link - info-coloured.
-		if(!empty($data['urlView']))
-		{
-			$infoButtons .= ' <a class="btn btn-sm btn-info" '
-				. 'href="'.$tp->toAttribute($data['urlView']).'" target="_blank" rel="noopener" '
-				. 'title="More information">'
-				. $tp->toGlyph('fa-external-link').'</a>';
-		}
 
-		// Download button - download ONLY (no install). For every entry,
-		// including installed plugins (re-download / refresh files).
-		// Highlighted (warning) when a newer version is available in the repo.
-		$downloadButton = '';
-
-		if(!empty($org) && !empty($repo) && !empty($folder))
-		{
-			$dlSrc = array(
-				'mode'         => 'online',
-				'action'       => 'download',
-				'install'      => 0,            // download only - do NOT install
-				'organization' => $org,
-				'repo'         => $repo,
-				'branch'       => $branch,
-				'folder'       => $folder,
-				'e-token'      => defset('e_TOKEN'),
-			);
-			$dlUrl     = e_SELF . '?' . http_build_query($dlSrc);
-			$dlCaption = LAN_DOWNLOAD . ' ' . $data['name'] . ' ' . $data['version'];
-			$dlClass   = $upgrade ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-default btn-secondary';
-			$dlTitle   = $upgrade ? 'Update available - download v'.$onlineVer : LAN_DOWNLOAD;
-
-			$downloadButton = ' <a title="'.$tp->toAttribute($dlTitle).'" class="e-modal '.$dlClass.'" '
-				. 'href="'.$dlUrl.'" rel="external" '
-				. 'data-loading="'.e_IMAGE.'/generic/loading_32.gif" data-cache="false" '
-				. 'data-modal-caption="'.$tp->toAttribute($dlCaption).'" target="_blank">'.$tp->toGlyph('fa-download').'</a>';
-		}
-
-		// Installed - green status icon + download (re-download) + info buttons.
-		if(e107::isInstalled($folder))
-		{
-			$status = '<button type="button" class="btn btn-sm btn-success" disabled title="'.$tp->toAttribute(LAN_INSTALLED).'">'.$tp->toGlyph('fa-check').'</button>';
-
-			return $status . $downloadButton . $infoButtons;
-		}
-
-		// Compatibility check - flag incompatible plugins with the warning colour.
-		$compatWarning = false;
-		$version       = $tp->filter(e_VERSION, 'version');
-		$compat        = (float) $tp->filter($data['compatibility'], 'version');
-
-		if($compat == 2)
-		{
-			$compat = $version;
-		}
-
-		if(!e107::isCompatible($compat, 'plugin'))
-		{
-			$compatWarning = true;
-		}
-
-		// Not installable (remote plugin.xml missing/invalid) - disabled grey Install.
-		if(isset($data['installable']) && $data['installable'] === false)
-		{
-			$errAttr = $tp->toAttribute(isset($data['install_error']) ? $data['install_error'] : '');
-
-			$installButton = '<button type="button" class="btn btn-sm btn-default btn-secondary" disabled title="'.$errAttr.'">'.$tp->toGlyph('fa-bolt').'</button>';
-
-			return $installButton . $downloadButton . $infoButtons;
-		}
-
-		// Installable & not installed - grey Install (yellow if maybe incompatible).
-		$modalCaption = (!empty($data['price']))
-			? EPL_ADLAN_92.' '.$data['name'].' '.$data['version']
-			: EPL_ADLAN_230.' '.$data['name'].' '.$data['version'];
+		$id = 'plug_'.$data['params']['id'];
+		$modalCaption = (!empty($data['price'])) ? EPL_ADLAN_92." ".$data['name']." ".$data['version'] : EPL_ADLAN_230." ".$data['name']." ".$data['version'];
 
 		$srcData = array(
-			'mode'         => 'online',
-			'action'       => 'download',
-			'install'      => 1,            // download + install
-			'organization' => $org,
-			'repo'         => $repo,
-			'branch'       => $branch,
-			'folder'       => $folder,
-			'e-token'      => defset('e_TOKEN'),
+			'plugin_id'     => $data['params']['id'],
+			'plugin_folder' => $data['folder'],
+			'plugin_price'  => $data['price'],
+			'plugin_mode'   =>  'addon',
+			'plugin_url'    => $data['url'],
 		);
-		$url = e_SELF . '?' . http_build_query($srcData);
 
-		$title    = $compatWarning ? 'Install: May not be compatible' : "Install Plugin";
-		$btnClass = $compatWarning ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-default btn-secondary';
+		$url = $this->getController()->getMarketplace()->getDownloadModal('plugin', $data);
 
-		$installButton = '<a title="'.$tp->toAttribute($title).'" class="e-modal '.$btnClass.'" '
-			. 'href="'.$url.'" rel="external" '
-			. 'data-loading="'.e_IMAGE.'/generic/loading_32.gif" data-cache="false" '
-			. 'data-modal-caption="'.$tp->toAttribute($modalCaption).'" target="_blank">'.$tp->toGlyph('fa-bolt').'</a>';
+		$button = ADMIN_INSTALLPLUGIN_ICON;
+		$class = 'btn btn-sm btn-default btn-secondary';
+		$disable = '';
+		$title = EPL_ADLAN_237;
+		$tp = e107::getParser();
 
-		return $installButton . $downloadButton . $infoButtons;
+		if($action === 'grid')
+		{
+			$button = e107::getParser()->toGlyph('fa-bolt').ADLAN_121; // Install
+			$class = 'btn btn-sm btn-primary';
+
+			$version = $tp->filter(e_VERSION,'version');
+			$compat = (float)  $tp->filter($data['compatibility'], 'version');
+
+			if($compat == 2)
+			{
+				$compat = $version;
+			}
+
+
+			if(!e107::isCompatible($compat, 'plugin'))
+			{
+				$button = e107::getParser()->toGlyph('fa-bolt').ADLAN_121;
+				$class = 'btn btn-sm btn-warning';
+			//	$disable = 'data-confirm="This plugin may not be compatible with your version of e107. Are you sure?"';
+				$title = "Install: May not be compatible";
+			}
+		}
+
+
+		return '<a title="'.$title.'" '.$disable.' class="e-modal '.$class.'" href="'.$url.'" rel="external" data-loading="'.e_IMAGE.'/generic/loading_32.gif"  data-cache="false" data-modal-caption="'.$modalCaption.'"  target="_blank" >'.$button.'</a>';
+	//	$dicon = "<a data-toggle='modal' data-bs-toggle='modal' data-modal-caption=\"Downloading ".$data['plugin_name']." ".$data['plugin_version']."\" href='{$url}' data-cache='false' data-target='#uiModal' title='".LAN_DOWNLOAD."' ><img class='top' src='".e_IMAGE_ABS."icons/download_32.png' alt=''  /></a> ";
+
+
 	}
 
 }
@@ -2558,3 +2486,9 @@ $mes = e107::getMessage();
 $frm = e107::getForm();*/
 
 require_once("footer.php");
+
+
+
+
+
+

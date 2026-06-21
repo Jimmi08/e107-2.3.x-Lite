@@ -636,7 +636,7 @@ class lancheck
 		if(!$locale = $this->findLocale($language))
 		{
 			$ret['error'] = TRUE;
-			$file = "e107_languages/{$language}/{$language}.php";
+			$file = "elanguages/{$language}/{$language}.php";
 			$def = (defined('LANG_LAN_25')) ? LANG_LAN_25 : LANG_LAN_119;
 			$ret['message'] = str_replace("[x]",$file,$def); //
 			return $ret;
@@ -645,7 +645,7 @@ class lancheck
 
 		global $THEMES_DIRECTORY, $PLUGINS_DIRECTORY, $LANGUAGES_DIRECTORY, $HANDLERS_DIRECTORY, $HELP_DIRECTORY;
 
-		if(($HANDLERS_DIRECTORY != "e107_handlers/") || ( $LANGUAGES_DIRECTORY != "e107_languages/") || ($THEMES_DIRECTORY != "e107_themes/") || ($HELP_DIRECTORY != "e107_docs/help/") || ($PLUGINS_DIRECTORY != "e107_plugins/"))
+		if(($HANDLERS_DIRECTORY != "ehandlers/") || ( $LANGUAGES_DIRECTORY != "elanguages/") || ($THEMES_DIRECTORY != "ethemes/") || ($HELP_DIRECTORY != "edocs/help/") || ($PLUGINS_DIRECTORY != "eplugins/"))
 		{
 			$ret['error'] = TRUE;
 			$ret['message'] = (defined('LANG_LAN_26')) ? LANG_LAN_26 : LANG_LAN_120;
@@ -682,7 +682,7 @@ class lancheck
 
 			if(file_put_contents($fileName,$fileData))
 			{
-				$addTag = $archive->add($fileName, PCLZIP_OPT_ADD_PATH, 'e107_languages/'.$language, PCLZIP_OPT_REMOVE_PATH, e_FILE.'public/');
+				$addTag = $archive->add($fileName, PCLZIP_OPT_ADD_PATH, 'elanguages/'.$language, PCLZIP_OPT_REMOVE_PATH, e_FILE.'public/');
 				$_SESSION['lancheck'][$language]['xml'] = "Yes";
 			}
 			else
@@ -867,13 +867,13 @@ class lancheck
 		$feed = 'https://e107.org/languagepacks.xml';
 		$version = e_VERSION;
 
-		// if(!empty($version))
-		// {
-		// 	$tmp = explode("-", $version);
-		// 	$ver = varset($tmp[0]); 
+		if(!empty($version))
+		{
+			$tmp = explode("-", $version);
+			$ver = varset($tmp[0]); 
 
-		// 	$feed .= "?ver=". preg_replace('/[^\d\.]/','', $ver);
-		// }
+			$feed .= "?ver=". preg_replace('/[^\d\.]/','', $ver);
+		}
 
 		e107::getDebug()->log("Language Pack Feed: ".$feed);
 

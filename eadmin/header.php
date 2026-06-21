@@ -62,12 +62,7 @@ function loadJSAddons()
 	e107::js('footer', '{e_WEB}js/core/admin.jquery.js', 'jquery', 5); // Load all default functions.
 	e107::js('footer', '{e_WEB}js/core/all.jquery.js', 'jquery', 5); // Load all default functions.
 
-	$plUpload = 'plupload/i18n/' . e_LAN . '.js';
 
-	if(e_LAN != 'en' && file_exists(e_WEB_JS . $plUpload))
-	{
-		e107::js('footer', e_WEB_JS . $plUpload, 'jquery', 5);
-	}
 }
 
 
@@ -263,7 +258,7 @@ echo "\n<!-- footer_inline_css -->\n";
 //
 // Unobtrusive JS via CSS, prevent 3rd party code overload
 //
-// require_once(e_FILE."/e_css.php"); //moved to e107_web/css/e107.css 
+// require_once(e_FILE."/e_css.php"); //moved to eweb/css/e107.css 
 
 //
 // E: Send JS
@@ -383,12 +378,8 @@ unset($tmp);
 e107::getJs()->renderJs('header', 4);
 e107::getJs()->renderJs('header_inline', 4);
 
-
 // ---------- Favicon ---------
-//
-if(function_exists('renderFavicon')) {
-	echo e107::getJs()->renderFavicon();
-}
+echo e107::getJs()->renderFavicon();
 
 //
 // G: Send Theme Headers
@@ -584,8 +575,8 @@ if($e107_popup != 1)
 	if(!deftrue('e_IFRAME'))
 	{
 		//removed  check strpos(e_SELF.'?'.e_QUERY, 'menus.php?configure') === FALSE
-		$ADMIN_HEADER = e107::getCoreTemplate('admin', 'header', true);
-		$ADMIN_MODAL = e107::getCoreTemplate('admin', 'modal', true);
+		$ADMIN_HEADER = e107::getCoreTemplate('admin', 'header', false);
+		$ADMIN_MODAL = e107::getCoreTemplate('admin', 'modal', false);
 
 		e107::renderLayout($ADMIN_MODAL . $ADMIN_HEADER, ['sc'=>'admin']);
 	}

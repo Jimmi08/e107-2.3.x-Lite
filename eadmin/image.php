@@ -40,6 +40,12 @@ if(varset($_GET['action']) === 'youtube' )
 e107::js('core', 'plupload/plupload.full.min.js', 'jquery', 2);
 e107::css('core', 'plupload/jquery.plupload.queue/css/jquery.plupload.queue.css', 'jquery');
 e107::js('core', 'plupload/jquery.plupload.queue/jquery.plupload.queue.min.js', 'jquery', 2);
+	$plUpload = 'plupload/i18n/' . e_LAN . '.js';
+
+	if(e_LAN != 'en' && file_exists(e_WEB_JS . $plUpload))
+	{
+		e107::js('footer', e_WEB_JS . $plUpload, 'jquery', 5);
+	}
 e107::js('core', 'core/mediaManager.js', 'jquery',5);
 // issue #3051 Preview url is wrong when target page is a plugin
 // Using this variable to check for the plugins directory and replace with empty space in case of...
@@ -133,13 +139,14 @@ class media_admin extends e_admin_dispatcher
 		'main/grid'			=> array('caption'=> 'LAN_IMA_M_01', 'perm' => 'A', 'icon'=>'fas-grip'),
 	//	'main/create' 		=> array('caption'=> "Add New Media", 'perm' => 'A'), // Should be handled in Media-Import.
 		'main/import' 		=> array('caption'=> 'LAN_IMA_M_02', 'perm' => 'A|A1', 'icon'=>'fa-upload'),
-			'divider/01'        => array('divider'=>true),
-		'cat/list' 			=> array('caption'=> 'LAN_IMA_M_03', 'perm' => 'A|A2'),
-		'cat/create' 		=> array('caption'=> 'LAN_IMA_M_04', 'perm' => 'A|A2'), // is automatic.
-	//	'main/settings' 	=> array('caption'=> 'LAN_PREFS', 'perm' => 'A'), // legacy
-		'divider/02'        => array('divider'=>true),
-		'main/prefs' 		=> array('caption'=> 'LAN_PREFS', 'perm' => 'A'),
-		'main/avatar'		=> array('caption'=> 'LAN_IMA_M_05', 'perm' => 'A')
+
+		'divider/01'        => array('divider'=>true, 'perm'=>'A2'),
+		'cat/list' 			=> array('caption'=> 'LAN_IMA_M_03', 'perm' => 'A2'),
+		'cat/create' 		=> array('caption'=> 'LAN_IMA_M_04', 'perm' => 'A2'), // is automatic.
+
+		'divider/02'        => array('divider'=>true, 'perm'=>'0'),
+		'main/prefs' 		=> array('caption'=> 'LAN_PREFS', 'perm' => '0'),
+		'main/avatar'		=> array('caption'=> 'LAN_IMA_M_05', 'perm' => '0')
 	);
 
 	protected $adminMenuIcon = 'e-images-24';
@@ -262,7 +269,7 @@ class media_cat_ui extends e_admin_ui
 
 	public function createPage()
 	{
-		if(!count($this->fields['media_cat_owner']['writeParms'])) 
+		if(empty($this->fields['media_cat_owner']['writeParms']))
 		{
 			e107::getMessage()->addInfo('Category creation not available.');
 			return null;
@@ -862,45 +869,52 @@ class media_admin_ui extends e_admin_ui
 		protected $pid = 'media_id';
 		protected $perPage = 10;
 		protected $batchDelete = true;
-        protected $batchExport = true;
 	//	protected $defaultOrder = 'desc';
 		protected $listOrder = 'm.media_id desc'; // show newest images first. 
 		public $deleteConfirmScreen = true;
 		public $deleteConfirmMessage = IMALAN_129;
 
-		protected $grid             = array('id'=>'media_id', 'title'=>'media_name', 'image'=>'media_preview', 'body'=>'',  'class'=>'col-sm-6 col-md-4 col-lg-2', 'perPage'=>24, 'carousel'=>false);
-
+		protected $grid             = array('id'=>'media_id', 'title'=>'media_name', 'image'=>'media_preview', 'dimensions'=>'media_dimensions', 'body'=>'',  'class'=>'col-sm-6 col-md-4 col-lg-2', 'perPage'=>24, 'carousel'=>false);
 
     	protected $preftabs			= array(IMALAN_78,IMALAN_89, 'Youtube');
-    	 
-		protected $fields = array(
-			'checkboxes'			=> array('title'=> '',				'type' => null,			'data'=> null,		'width' =>'5%', 'forced'=> TRUE, 'thclass'=>'center', 'class'=>'center'),
-			'media_id'				=> array('title'=> LAN_ID,			'type' => 'number',		'data'=> 'int',		'width' =>'5%', 'forced'=> TRUE, 'nolist'=>TRUE),
-      		'media_preview'			=> array('title'=> LAN_PREVIEW, 	'type' => 'method', 	'data'=>false, 	'forced'=>true, 'width' => '110px', 'thclass' => 'center', 'class'=>'center'),
-      		'media_url' 			=> array('title'=> IMALAN_110,		'type' => 'text',		'data'=> 'str',	'inline'=>false,	'thclass' => 'left', 'class'=>'left', 'width' => 'auto', 'writeParms'=>'size=xxlarge'),
-			'media_category' 		=> array('title'=> LAN_CATEGORY,	'type' => 'comma',	    'inline'=>false,	'data'=> 'str',		'width' => '10%', 'filter' => true, 'batch' => true, 'class'=>'left'),
-		// Upload should be managed completely separately via upload-handler.
-       	//	'media_upload' 			=> array('title'=> "Upload File",	'type' => 'upload',		'data'=> false,		'readParms' => 'hidden', 'writeParms' => 'disable_button=1', 'width' => '10%', 'nolist' => true),
-			'media_name' 			=> array('title'=> LAN_TITLE,		'type' => 'text',		'data'=> 'str',		'inline'=>true, 'width' => 'auto', 'writeParms'=>array('size'=>'xxlarge')),
-			'media_caption' 		=> array('title'=> LAN_CAPTION,		'type' => 'text',		'data'=> 'str',		'inline'=>true, 'width' => 'auto', 'writeParms'=>array('size'=>'xxlarge')),
-         	// media_description is type = textarea until bbarea can be reduced to not include youtube etc
-   		    'media_sef'             => array('title'=> LAN_URL,   'readonly'=>1,    'type'=>'method', 'data'=>false),
 
-         	'media_description' 	=> array('title'=> LAN_DESCRIPTION,	'type' => 'textarea',		'data'=> 'str',		'width' => 'auto', 'thclass' => 'left first', 'readParms' => 'truncate=100', 'writeParms' => 'size=xxlarge&counter=0'),
-         	'media_type' 			=> array('title'=> IMALAN_118,		'type' => 'dropdown',		'data'=> 'str',		'filter'=>true, 'width' => 'auto', 'noedit'=>TRUE),
-			'media_author' 			=> array('title'=> LAN_USER,		'type' => 'user',		'data'=> 'int', 	'width' => 'auto', 'thclass' => 'center', 'class'=>'center','readParms' => 'link=1', 'filter' => true, 'batch' => true, 'noedit'=>TRUE	),
-			'media_datestamp' 		=> array('title'=> LAN_DATESTAMP,	'type' => 'datestamp',	'data'=> 'int',		'width' => '10%', 'noedit'=>TRUE),	// User date
-          	'media_size' 			=> array('title'=> LAN_SIZE,			'type' => 'number',		'data'=> 'int',		'width' => 'auto', 'readonly'=>2),
-			'media_dimensions' 		=> array('title'=> IMALAN_120,	'type' => 'text',		'data'=> 'str',		'width' => '5%', 'readonly'=>TRUE, 'class'=>'nowrap','noedit'=>TRUE),
-			'media_userclass' 		=> array('title'=> LAN_USERCLASS,	'type' => 'userclass',	'data'=> 'str',		'inline'=>true, 'width' => '10%', 'thclass' => 'center','filter'=>TRUE,'batch'=>TRUE ),
-			'media_tags' 			=> array('title'=> IMALAN_132,	'type' => 'tags',	'inline'=>true,	'data'=> 'str',		'width' => '10%',  'filter'=>TRUE,'batch'=>TRUE ),
-			'media_usedby' 			=> array('title'=> IMALAN_21,		'type' => 'hidden',		'data'=> 'text', 	'width' => 'auto', 'thclass' => 'center', 'class'=>'center', 'nolist'=>true, 'readonly'=>TRUE	),
+    	protected $tabs             = ['general'=>LAN_GENERAL, 'advanced'=>LAN_ADVANCED];
 
-			'options' 				=> array('title'=> LAN_OPTIONS,		'type' => 'method',			'data'=> null,		'forced'=>TRUE, 'width' => '10%', 'thclass' => 'center last', 'class' => 'center', 'batch'=>true, 'noedit'=>true)
-		);
+		protected $fields           = [
+			'checkboxes'			=> array('title'=> '',				'type' => null,			'data'=> null, 'tab'=>'general',	'width' =>'5%', 'forced'=> TRUE, 'thclass'=>'center', 'class'=>'center'),
+			'media_id'				=> array('title'=> LAN_ID,			'type' => 'number',		'data'=> 'int', 'tab'=>'general',	'width' =>'5%', 'forced'=> TRUE, 'nolist'=>TRUE),
+			'media_preview'			=> array('title'=> LAN_PREVIEW, 	'type' => 'method', 	'data'=>false, 'tab'=>'general', 	'forced'=>true, 'width' => '110px', 'thclass' => 'center', 'class'=>'center'),
+			'media_url' 			=> array('title'=> IMALAN_110,		'type' => 'text',		'data'=> 'str', 'tab'=>'general',	'inline'=>false,	'thclass' => 'left', 'class'=>'left', 'width' => 'auto', 'writeParms'=>'size=xxlarge'),
+			'media_category' 		=> array('title'=> LAN_CATEGORY,	'type' => 'comma',	    'inline'=>false,	'data'=> 'str', 'tab'=>'advanced',	'width' => '10%', 'filter' => true, 'batch' => true, 'class'=>'left'),
+			// Upload should be managed completely separately via upload-handler.
+			//	'media_upload' 			=> array('title'=> "Upload File",	'type' => 'upload',		'data'=> false, 'tab'=>'general',	'readParms' => 'hidden', 'writeParms' => 'disable_button=1', 'width' => '10%', 'nolist' => true),
+			'media_name' 			=> array('title'=> LAN_TITLE,		'type' => 'text',		'data'=> 'str', 'tab'=>'general',	'inline'=>true, 'width' => 'auto', 'writeParms'=>array('size'=>'xxlarge')),
+			'media_caption' 		=> array('title'=> LAN_CAPTION,		'type' => 'text',		'data'=> 'str', 'tab'=>'general',	'inline'=>true, 'width' => 'auto', 'writeParms'=>array('size'=>'xxlarge')),
+			// media_description is type = textarea until bbarea can be reduced to not include youtube etc
+			'media_alt'             => array('title' => IMALAN_191, 'type' => 'text', 'data' => 'str', 'tab'=>'general', 'width' => '20%', 'inline' => true, 'writeParms' => array('size' => 'xxlarge'), 'thclass' => 'left', 'class' => 'left', 'filter' => true),
 
+			'media_sef'             => array('title'=> LAN_URL,         'readonly'=>1,    'type'=>'method', 'data'=>false, 'tab'=>'general'),
+			'media_description' 	=> array('title'=> LAN_DESCRIPTION,	'type' => 'textarea',		'data'=> 'str', 'tab'=>'general',	'width' => 'auto', 'thclass' => 'left first', 'readParms' => 'truncate=100', 'writeParms' => 'size=xxlarge&counter=0'),
+			'media_type' 			=> array('title'=> IMALAN_118,		'type' => 'dropdown',		'data'=> 'str', 'tab'=>'general',	'filter'=>true, 'width' => 'auto', 'noedit'=>TRUE),
+			'media_author' 			=> array('title'=> LAN_USER,		'type' => 'user',		'data'=> 'int', 'tab'=>'general', 	'width' => 'auto', 'thclass' => 'center', 'class'=>'center','readParms' => 'link=1', 'filter' => true, 'batch' => true, 'noedit'=>TRUE),
+			'media_datestamp' 		=> array('title'=> LAN_DATESTAMP,	'type' => 'datestamp',	'data'=> 'int', 'tab'=>'general',	'width' => '10%', 'noedit'=>TRUE),	// User date
+			'media_size' 			=> array('title'=> LAN_SIZE,			'type' => 'number',		'data'=> 'int', 'tab'=>'general',	'width' => 'auto', 'readonly'=>2, 'readParms'=>['format'=>'bytes']),
+			'media_dimensions' 		=> array('title'=> IMALAN_120,	    'type' => 'text',		'data'=> 'str', 'tab'=>'general',	'width' => '5%', 'readonly'=>TRUE, 'class'=>'nowrap','noedit'=>TRUE),
+			'media_userclass' 		=> array('title'=> LAN_USERCLASS,	'type' => 'userclass',	'data'=> 'str', 'tab'=>'advanced',	'inline'=>true, 'width' => '10%', 'thclass' => 'center','filter'=>TRUE,'batch'=>TRUE ),
+			'media_tags' 			=> array('title'=> IMALAN_132,	    'type' => 'tags',	'inline'=>true,	'data'=> 'str', 'tab'=>'advanced',	'width' => '10%',  'filter'=>TRUE,'batch'=>TRUE ),
 
-		protected $mimePaths = array(
+			'media_credits'         => array('title' => IMALAN_192, 'type' => 'text', 'data' => 'str', 'tab'=>'advanced', 'width' => '20%', 'inline' => true, 'writeParms' => array('size' => 'xxlarge'), 'thclass' => 'left', 'class' => 'left', 'filter' => false),
+			'media_expires'         => array('title' => IMALAN_193, 'type' => 'datestamp', 'data' => 'int', 'tab'=>'advanced', 'width' => '15%', 'inline' => true, 'writeParms' => '', 'thclass' => 'center', 'class' => 'center', 'filter' => true, 'batch' => true),
+			'media_usedby' 			=> array('title'=> IMALAN_21,		'type' => 'hidden',		'data'=> 'text', 'tab'=>'advanced', 	'width' => 'auto', 'thclass' => 'center', 'class'=>'center', 'nolist'=>true, 'readonly'=>TRUE	),
+
+			'options' 				=> array('title'=> LAN_OPTIONS,		'type' => 'method',			'data'=> null, 'forced'=>TRUE, 'width' => '10%', 'thclass' => 'center last', 'class' => 'center', 'batch'=>true, 'noedit'=>true)
+		];
+
+	//	protected $filterSort = ['media_author']; // Display these fields first
+
+	//	protected $batchSort = ['media_author']; // Display these fields first
+
+		protected $mimePaths = [
 				'text'			=> e_MEDIA_FILE,
 				'multipart'		=> e_MEDIA_FILE,
 				'application'	=> e_MEDIA_FILE,
@@ -908,15 +922,12 @@ class media_admin_ui extends e_admin_ui
 				'image'			=> e_MEDIA_IMAGE,
 				'video'			=> e_MEDIA_VIDEO,
 				'other'			=> e_MEDIA_FILE
-		);
+		];
 		
-		protected $fieldpref = array( 'media_id', 'media_name', 'media_caption', 'media_category', 'media_datestamp','media_userclass', 'options');
+		protected $fieldpref = ['media_id', 'media_name', 'media_caption', 'media_category', 'media_datestamp','media_alt', 'options'];
 
 
-
-
-	
-	protected $prefs = array(
+		protected $prefs = array(
 		'image_post'	   				=> array('title'=> IMALAN_1, 'tab'=>0, 'type'=>'boolean', 'data'=>'int', 'writeParms'=>'help=IMALAN_2'),
 		'image_post_class' 				=> array('title'=> IMALAN_10, 'type' => 'userclass', 'data'=>'int', 'writeParms'=>'help=IMALAN_11&classlist=public,guest,nobody,member,admin,main,classes' ),
 		'image_post_disabled_method'	=> array('title'=> IMALAN_12, 'type' => 'boolean','writeParms'=>'enabled=IMALAN_15&disabled=IMALAN_14'),
@@ -1160,7 +1171,7 @@ class media_admin_ui extends e_admin_ui
 			$this->batchDelete();
 		}
 
-		if(varset($_POST['update_options']))
+		if(!empty($_POST['update_options']))
 		{
 			$this->updateSettings();
 		}
@@ -1348,6 +1359,7 @@ class media_admin_ui extends e_admin_ui
 		$this->grid['template'] =  '<div class="panel panel-default">
 					<div class="e-overlay" >{IMAGE}
 						<div class="e-overlay-content">
+						<span class="label label-default" style="font-size:1.2rem;position:absolute;top:0;right:0;padding:5px">{DIMENSIONS}</span>
 						<p>{TITLE}</p>
 						<p>{OPTIONS}</p>
 						<p>{CHECKBOX} <label for="multiselect-{ID}-{ID}">'.LAN_SELECT.'</label></p>
@@ -2212,11 +2224,11 @@ class media_admin_ui extends e_admin_ui
 		$md = e107::getMedia();
 
 
-		if ($this->fontawesome > 4) // Fontawesome 5 and 6
+		if($this->fontawesome > 4) // Fontawesome 5 and 6
 		{
 
-			$fab = e107::getMedia()->getGlyphs('fa' . $this->fontawesome . '-fab');
-			
+			$fab = e107::getMedia()->getGlyphs('fa'.$this->fontawesome.'-fab');
+
 			foreach($fab as $val)
 			{
 				$items[] = array(
@@ -2231,7 +2243,8 @@ class media_admin_ui extends e_admin_ui
 
 			}
 
-			$fas = e107::getMedia()->getGlyphs('fa' . $this->fontawesome . '-fas');
+			$fas = e107::getMedia()->getGlyphs('fa'.$this->fontawesome.'-fas');
+
 			foreach($fas as $val)
 			{
 				$items[] = array(
@@ -2246,7 +2259,7 @@ class media_admin_ui extends e_admin_ui
 
 			}
 
-			$far = e107::getMedia()->getGlyphs('fa' . $this->fontawesome . '-far');
+			$far = e107::getMedia()->getGlyphs('fa'.$this->fontawesome.'-far');
 
 			foreach($far as $val)
 			{
@@ -2261,6 +2274,7 @@ class media_admin_ui extends e_admin_ui
 				);
 
 			}
+
 		}
 
 		if($this->fontawesome === 4)
@@ -3066,7 +3080,7 @@ class media_admin_ui extends e_admin_ui
 			$text .= "</div>
 
 			<div class='col-md-12 spacer clearfix'>
-				<div class='row buttons-bar'>
+				<div class='buttons-bar'>
 					<input type='hidden' name='show_avatars' value='1' />
 					".$frm->admin_button('e_check_all', LAN_CHECKALL, 'action'). '
 					' .$frm->admin_button('e_uncheck_all', LAN_UNCHECKALL, 'action'). '
@@ -3118,6 +3132,19 @@ class media_admin_ui extends e_admin_ui
 		$this->fields['media_category']['data'] = 'str'; //XXX Quick fix for 'comma' incompatibility in Db-Update routines. 
 		return $new_data;
 	//	return $this->observeUploaded($new_data);
+	}
+
+	public function afterUpdate($new_data, $old_data, $id)
+	{
+		if(isset($new_data['media_alt']) && !empty($new_data['media_url']))
+		{
+			if($cacheFile = e107::getParser()->setImageAltCacheFile($new_data['media_url'], $new_data['media_alt']))
+			{
+				e107::getMessage()->addDebug("Created Alt Tag cache file: $cacheFile");
+			}
+		}
+
+
 	}
 
 	public function mediaData($sc_path)
@@ -4067,3 +4094,4 @@ if(!e_AJAX_REQUEST)
 {
 	require_once(__DIR__. '/footer.php');
 }
+

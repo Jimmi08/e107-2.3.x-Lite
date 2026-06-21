@@ -464,18 +464,26 @@ function update_core_prefs($type='')
 	$should = get_default_prefs();
 
 	$just_check = !($type == 'do');		// TRUE if we're just seeing if an update is needed
-   
+
+    $missing = [];
+
 	foreach ($should as $k => $v)
 	{
 		if ($k && !array_key_exists($k,$pref))
 		{
-			if ($just_check) return update_needed('Missing pref: '.$k);
+			$missing[] = $k;
 		//	$pref[$k] = $v;
 			e107::getConfig()->set($k,$v);
 			$admin_log->logMessage($k.' => '.$v, E_MESSAGE_NODISPLAY, E_MESSAGE_INFO);
 			$do_save = TRUE;
 		}
 	}
+
+	if ($just_check && !empty($missing))
+	{
+		return update_needed('<br>Missing prefs: <ul><li>'.implode('</li><li>',$missing).'</li></ul>');
+	}
+
 	if ($do_save)
 	{
 		//save_prefs();
@@ -591,7 +599,7 @@ function update_core_database($type = '')
 		$e_user_list = e107::getPref('e_user_list');
 
 			e107::getPlug()->clearCache()->buildAddonPrefLists();
-			if(empty($e_user_list['user'])) // check e107_plugins/user/e_user.php is registered.
+			if(empty($e_user_list['user'])) // check eplugins/user/e_user.php is registered.
 			{
 				if($just_check)
 				{
@@ -636,7 +644,7 @@ function update_core_database($type = '')
 		$just_check = !($type == 'do');
 		$pref = e107::getPref();
 
-	    // LITE FEATURE — do not remove when syncing from upstream.
+		// LITE FEATURE — do not remove when syncing from upstream.
 		if(!$just_check)
 		{
 			if(e107::getConfig()->get('admincss') !== 'css/admin-exas-core.css')
@@ -646,7 +654,18 @@ function update_core_database($type = '')
 			}
 
 		}
-/*
+
+		if(!isset($pref['admin_navbar_debug']))
+		{
+			if($just_check)
+			{
+				return update_needed("Upgrade to 2.4 required (install skin).");
+			}
+
+			e107::getConfig()->set('admin_navbar_debug',255)->save(false,true,false);
+
+		}
+
 		if(!isset($pref['lan_global_list']['news']))
 		{
 			if($just_check)
@@ -658,7 +677,7 @@ function update_core_database($type = '')
 			$plgClass->plugFolder = 'news';
 			$plgClass->XmlLanguageFiles('refresh');
 		}
-*/
+
 
 		if(!$sql->select('core_media_cat', 'media_cat_id', "media_cat_category = '_icon_svg' LIMIT 1"))
 		{
@@ -898,11 +917,11 @@ function update_706_to_800($type='')
 
 
 
-	if($pref['admintheme'] == 'bootstrap3')//TODO Force an admin theme update or not?
+	if($pref['admintheme'] == 'bootstrap')//TODO Force an admin theme update or not?
 	{
 		if ($just_check) return update_needed('pref: Admin theme upgrade to bootstrap3 ');
 
-		$pref['admintheme'] = 'backend';
+		$pref['admintheme'] = 'bootstrap3';
 		$pref['admincss']    = 'css/bootstrap-dark.min.css';
 
 		$do_save = true;
@@ -1541,20 +1560,20 @@ function update_706_to_800($type='')
 	
 	// -------------------------------
 
-	// if (!e107::isInstalled('download') && $sql->gen("SELECT * FROM #links WHERE link_url LIKE 'download.php%' AND link_class != '".e_UC_NOBODY."' LIMIT 1"))
-	// {
-	// 	if ($just_check) return update_needed('Download Plugin needs to be installed.');	
-	// //	e107::getSingleton('e107plugin')->install('download',array('nolinks'=>true));
-	// 	e107::getSingleton('e107plugin')->refresh('download');
-	// }
+	if (!e107::isInstalled('download') && $sql->gen("SELECT * FROM #links WHERE link_url LIKE 'download.php%' AND link_class != '".e_UC_NOBODY."' LIMIT 1"))
+	{
+		if ($just_check) return update_needed('Download Plugin needs to be installed.');	
+	//	e107::getSingleton('e107plugin')->install('download',array('nolinks'=>true));
+		e107::getSingleton('e107plugin')->refresh('download');
+	}
 
 
 
-	// if (!e107::isInstalled('banner') && $sql->isTable('banner'))
-	// {
-	// 	if ($just_check) return update_needed('Banner Table found, but plugin not installed. Needs to be refreshed.');	
-	// 	e107::getSingleton('e107plugin')->refresh('banner');
-	// }
+	if (!e107::isInstalled('banner') && $sql->isTable('banner'))
+	{
+		if ($just_check) return update_needed('Banner Table found, but plugin not installed. Needs to be refreshed.');	
+		e107::getSingleton('e107plugin')->refresh('banner');
+	}
 	
 	// ---------------------------------
 	
@@ -2041,7 +2060,7 @@ function copy_user_timezone()
 	{
 		while ($row = $sql->fetch())
 		{
-			$sql2->update('user_extended',"`user_timezone`='".$sql2->escape($row['user_timezone'])."' WHERE `user_extended_id`=".(int) $row['user_id']);
+			$sql2->createQueryBuilder()->update('user_extended')->set('user_timezone', $row['user_timezone'])->where('user_extended_id', (int) $row['user_id'])->execute();
 		}
 	}
 	return true;		// All done!
@@ -2138,7 +2157,15 @@ function convert_serialized($serializedData, $type='')
 function theme_foot()
 {
 	global $pref;
-	
+
+	if(!empty($_POST['update_core']['706_to_800']) || !empty($_POST['update_core']['20x_to_latest']))
+	{
+		$data = array('name'=>SITENAME, 'theme'=>$pref['sitetheme'], 'language'=>e_LANGUAGE, 'url'=>SITEURL, 'type'=>'upgrade', 'version'=> defset('e_VERSION'), 'php'=>defset('PHP_VERSION'));
+		$base = base64_encode(http_build_query($data, null, '&'));
+		$url = "https://e107.org/e-install/".$base;
+		return "<img src='".$url."' style='width:1px; height:1px;border:0' />";
+	}
+
 }
 
 ?>

@@ -8,7 +8,7 @@
  *
  * Admin Footer
  *
- * $Source: /cvs_backup/e107_0.8/e107_admin/footer.php,v $
+ * $Source: /cvs_backup/e107_0.8/eadmin/footer.php,v $
  * $Revision$
  * $Date$
  * $Author$
@@ -98,7 +98,7 @@ if (varset($e107_popup) != 1)
 	//NEW - Iframe mod
 	if (!deftrue('e_IFRAME'))
 	{
-		$ADMIN_FOOTER = e107::getCoreTemplate('admin', 'footer', true);
+		$ADMIN_FOOTER = e107::getCoreTemplate('admin', 'footer', true); //LITE MODIFICATION #5722 UPSTREAM
 		e107::renderLayout($ADMIN_FOOTER, ['sc'=>'admin']);
 	}
 	
