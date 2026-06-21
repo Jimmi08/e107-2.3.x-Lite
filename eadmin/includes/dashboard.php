@@ -2,7 +2,11 @@
 
 	/**
 	 * @file
-	 * Flexpanel dashboard style.
+	 * LITE FEATURE: Flexpanel dashboard adminstyle for Lite admin.
+	 * This file does not exist in upstream e107. Lite ships its own
+	 * `dashboard` adminstyle (selected via $pref['adminstyle']) using
+	 * a flexible drag-and-drop panel layout. Sync passes MUST preserve
+	 * this file (Lite-only — no upstream equivalent).
 	 */
 
 	if (!defined('e107_INIT')) {
