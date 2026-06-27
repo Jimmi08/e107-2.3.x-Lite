@@ -824,7 +824,12 @@ class plugin_ui extends e_admin_ui
 					'label'			=> EPL_ADLAN_57,
 					'helpText'		=> EPL_ADLAN_58,
 					'itemList'		=> array(1=>LAN_YES,0=>LAN_NO),
-					'itemDefault' 	=> 1
+					// LITE MODIFICATION: default 0 (No). Upstream defaults to 1 (Yes),
+					// which pre-selects destructive table deletion on uninstall — easy
+					// to confirm by accident and lose plugin data. Lite makes the
+					// non-destructive choice the default.
+					// Revert condition: if upstream changes this default to 0.
+					'itemDefault' 	=> 0
 			);
 
 			if ($userclasses)
