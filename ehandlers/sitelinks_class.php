@@ -1040,8 +1040,18 @@ i.e-cat_users-32{ background-position: -555px 0; width: 32px; height: 32px; }
         }
             
         $merged = array_merge($array_functions_assoc, $this->pluginLinks($E_16_PLUGMANAGER, "array"));
-        $sorted = multiarray_sort($merged,'title'); // this deleted the e-xxxx and p-xxxxx keys. 
-        return $this->restoreKeys($sorted); // we restore the keys with this. 
+		// LITE FEATURE (#92): admin-menu order. Sort by 'sort' asc (plugin
+		// getOrder(), default 999) then strnatcmp on 'title' so the unordered
+		// block keeps the legacy natsort order. Replaces upstream
+		// multiarray_sort($merged,'title'). Do not revert on sync.
+		usort($merged, static function($a, $b) {
+			$oa = isset($a['sort']) ? (int) $a['sort'] : 999;
+			$ob = isset($b['sort']) ? (int) $b['sort'] : 999;
+
+			return ($oa !== $ob) ? ($oa <=> $ob) : strnatcmp((string) $a['title'], (string) $b['title']);
+		});
+		$sorted = $merged;
+        return $this->restoreKeys($sorted); // we restore the keys with this.
         
 	}
 
@@ -1218,7 +1228,7 @@ i.e-cat_users-32{ background-position: -555px 0; width: 32px; height: 32px; }
 				'image_large'   => $plug->getIcon(32),
 				'category'      => $cat,
 				'perm'           => "P".$plug->getId(),
-				'sort'          => 2,
+				'sort'          => $plug->getOrder(), // LITE FEATURE (#92): admin-menu order. Was hardcoded 2.
 				'sub_class'     => null,
 
 
