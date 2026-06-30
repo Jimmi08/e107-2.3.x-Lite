@@ -407,6 +407,23 @@ class e_plugin
 
 
 	/**
+	 * LITE FEATURE: admin-menu sort order from the primary adminLinks
+	 * <link order="N"> attribute. Upstream gives a plugin no way to influence
+	 * its admin-menu position; Lite adds it. Do not remove when syncing.
+	 * Lower = earlier. Missing/invalid => 999 (sorts after explicitly-ordered
+	 * plugins, preserving legacy alphabetical behaviour). See issue #92.
+	 *
+	 * @return int
+	 */
+	public function getOrder()
+	{
+		$att = varset($this->_data[$this->_plugdir]['adminLinks']['link'][0]['@attributes']);
+
+		return isset($att['order']) ? (int) $att['order'] : 999;
+	}
+
+
+	/**
 	 * @return false|string
 	 */
 	public function getAdminUrl()
