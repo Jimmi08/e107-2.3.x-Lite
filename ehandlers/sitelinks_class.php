@@ -1329,34 +1329,27 @@ i.e-cat_users-32{ background-position: -555px 0; width: 32px; height: 32px; }
 		 */
 		if ($sortlist == TRUE)
 		{
-			$temp = $e107_vars;
-			unset($e107_vars);
-			$func_list = array();
-			foreach (array_keys($temp) as $key)
-			{
-				$func_list[] = $temp[$key]['text'];
-			}
+			// LITE FEATURE (#92): admin-menu order. Sort the menu items by their
+			// numeric 'sort' value (plugin getOrder(), default 999), then strcoll
+			// on 'text'. Explicitly-ordered plugins float to their numbered
+			// positions; everything else keeps the legacy alphabetical order.
+			//
+			// This replaces the previous text-only usort + array_unique
+			// text cross-join. It also subsumes the K² duplication guarded by the
+			// removed #5786 LITE MODIFICATION: uasort keeps entries 1:1, so no
+			// text cross-join exists that could duplicate same-named entries.
+			//
+			// 'sort' name collision: the ENTRY-level 'sort' is the getOrder()
+			// integer; the CATEGORY-level 'sort' that enabled this block is a
+			// boolean. is_numeric() makes that boolean (and any core entry with
+			// no 'sort') fall back to 999. Do not revert on sync.
+			uasort($e107_vars, static function($a, $b) {
+				$oa = (isset($a['sort']) && is_numeric($a['sort'])) ? (int) $a['sort'] : 999;
+				$ob = (isset($b['sort']) && is_numeric($b['sort'])) ? (int) $b['sort'] : 999;
 
-			// LITE MODIFICATION: de-duplicate before the text cross-join below;
-			// otherwise K entries sharing the same display name are emitted K²
-			// times in sorted admin categories.
-			// Reported upstream: https://github.com/e107inc/e107/issues/5786
-			// REVERT WHEN: upstream #5786 is merged.
-			$func_list = array_unique($func_list);
-
-			usort($func_list, 'strcoll');
-	
-			foreach ($func_list as $func_text)
-			{
-				foreach (array_keys($temp) as $key)
-				{
-					if ($temp[$key]['text'] == $func_text)
-					{
-						$e107_vars[] = $temp[$key];
-					}
-				}
-			}
-			unset($temp);
+				return ($oa !== $ob) ? ($oa <=> $ob) : strcoll((string) $a['text'], (string) $b['text']);
+			});
+			$e107_vars = array_values($e107_vars);
 		}
 	
 		if(empty($e107_vars))
